@@ -130,6 +130,20 @@ await t("secrétaire (foot) accepte et nomme entraîneur U15 foot", assertSuccee
 await t("secrétaire (foot) ne donne pas le basket", assertFails(updateDoc(doc(secr, C + "/membres/intrus"), { perimetre: ["basket"], ...A("secr") })));
 await t("secrétaire ne nomme pas un rôle au-dessus d'elle", assertFails(updateDoc(doc(secr, C + "/membres/intrus"), { role: "vice_president", ...A("secr") })));
 await t("secrétaire ne touche pas au président", assertFails(updateDoc(doc(secr, C + "/membres/pres"), { actif: false, ...A("secr") })));
+/* ----- Caisse ouverte : le joueur déclare dans sa fiche, le trésorier vérifie et publie ----- */
+await t("joueur déclare un versement avec capture dans sa fiche", assertSucceeds(setDoc(doc(joueur, C + "/personnes/p1"), { declarations: { d1: { montant: 2000, mode: "wave", date: "2026-11-01", capture: "data:image/jpeg;base64,xx", statut: "en attente" } }, ...A("joueur") }, { merge: true })));
+await t("joueur ne touche pas à la fiche d'un autre", assertFails(setDoc(doc(joueur, C + "/personnes/p2"), { declarations: { d1: { montant: 1 } }, ...A("joueur") }, { merge: true })));
+await t("trésorier lit les déclarations", assertSucceeds(getDoc(doc(treso, C + "/personnes/p1"))));
+await t("trésorier publie la ligne vérifiée", assertSucceeds(setDoc(doc(treso, C + "/versements/v1"), { personneId: "p1", nom: "Moussa Diop", montant: 2000, mode: "wave", dateVersement: "2026-11-01", numero: 1, valideLe: "2026-11-01T20:00", ...A("treso") })));
+await t("trésorier range les preuves", assertSucceeds(setDoc(doc(treso, C + "/justificatifs/v1"), { versementId: "v1", capture: "x", contre: "y", ...A("treso") })));
+await t("trésorier passe la déclaration à « validée »", assertSucceeds(setDoc(doc(treso, C + "/personnes/p1"), { declarations: { d1: { statut: "validée", capture: "" } }, ...A("treso") }, { merge: true })));
+await t("trésorier règle la caisse et ses totaux publics", assertSucceeds(setDoc(doc(treso, C + "/caisses/principale"), { actif: true, numero: "77 000 00 00", objectif: 100000, stats: { total: 2000 }, ...A("treso") })));
+await t("visiteur lit les totaux de la caisse", assertSucceeds(getDoc(doc(anon, C + "/caisses/principale"))));
+await t("membre lit le registre des versements", assertSucceeds(getDoc(doc(parent, C + "/versements/v1"))));
+await t("visiteur ne lit pas le registre nominatif", assertFails(getDoc(doc(anon, C + "/versements/v1"))));
+await t("joueur ne crée pas de versement vérifié lui-même", assertFails(setDoc(doc(joueur, C + "/versements/v2"), { personneId: "p1", nom: "Moussa", montant: 99999, ...A("joueur") })));
+await t("versement vérifié : jamais effacé", assertFails(deleteDoc(doc(treso, C + "/versements/v1"))));
+
 await t("président crée ses propres rôles", assertSucceeds(setDoc(doc(pres, C + "/reglages/roles"), { roles: { entraineur: { nom: "Coach", niveau: 40, droits: ["sportif"] }, secretaire: { nom: "Secrétaire", niveau: 70, droits: ["membres", "effectif"] } }, ...A("pres") })));
 await t("après changement de rôle, l'entraîneur perd l'effectif", assertFails(updateDoc(doc(coach, C + "/personnes/p1"), { poste: "Gardien", ...A("coach") })));
 await t("secrétaire ne crée pas de rôles", assertFails(setDoc(doc(secr, C + "/reglages/roles"), { roles: {}, ...A("secr") })));

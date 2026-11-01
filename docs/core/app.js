@@ -115,7 +115,7 @@
     if (D.can("reglages") || D.president()) items.push({ h: `${c}/reglages`, t: "Réglages", k: "reglages" });
     if (B.estAdmin()) items.push({ h: "#/admin", t: "Admin", k: "admin" });
     // caisse ouverte : juste après l'accueil, c'est l'action la plus fréquente quand elle est activée
-    if (moduleOn("finances") && (S.caisseActive || D.can("reglages"))) items.splice(1, 0, { h: `${c}/cotiser`, t: S.caisseActive ? "Cotiser" : "Caisse ouverte", k: "cotiser" });
+    if (moduleOn("finances") && (S.caisseActive || D.can("finances"))) items.splice(1, 0, { h: `${c}/cotiser`, t: S.caisseActive ? "Cotiser" : "Caisse ouverte", k: "cotiser" });
     return items;
   }
   // Bouton « + » présent sur tous les écrans du club : on ajoute sans revenir à l'accueil.
@@ -201,7 +201,7 @@
     S.membre = await B.monMembre(id);
     S.R = await B.roles(id);
     D.regler({ uid: B.uid === "visiteur" ? null : B.uid, admin: B.estAdmin(), membre: S.membre, R: S.R });
-    S.caisseActive = !!((await B.reglage(id, "caisse")) || {}).actif;
+    S.caisseActive = !!((await lireCaisse()) || {}).actif;
     const coul = S.club.couleurs || {};
     appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
     iconeClub(S.club);
@@ -555,6 +555,8 @@
      - la déclaration va dans la fiche du cotisant (personnes.declarations, champ « réponse ») ;
      - une fois vérifiée : reçu numéroté (paiements) + ligne publique (versements) + preuves (justificatifs) ;
      - les totaux publics (vitrine) sont dans reglages/caisse. */
+  // réglages et totaux publics : collection « caisses » du modèle (lecture publique, écriture droit Finances)
+  const lireCaisse = async () => (moduleOn("finances") && pol("caisses") ? B.lire(S.clubId, "caisses", "principale").catch(() => null) : null);
   const moisCle = (d = jour()) => String(d).slice(0, 7);
   const moisNom = (k) => new Date(k + "-01T00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   const waNum = (t) => telComplet(t).replace(/\D/g, "");
@@ -570,12 +572,12 @@
   }
   // accueil : résumé public de la caisse (lisible par tous via reglages/caisse)
   async function caisseResumeHtml() {
-    const cfg = await B.reglage(S.clubId, "caisse");
+    const cfg = await lireCaisse();
     if (!cfg || !cfg.actif) return "";
     return `<a class="carte caisse-resume" href="#/c/${S.clubId}/cotiser">${caisseTete(cfg, cfg.stats || {})}<span class="btn accent">${D.membre() ? "Cotiser ou voir qui a versé" : "Voir la caisse"}</span></a>`;
   }
   async function vueCotiser() {
-    const cfg = (await B.reglage(S.clubId, "caisse")) || {};
+    const cfg = (await lireCaisse()) || {};
     const fin = D.can("finances"), membre = D.membre();
     const [ps, vers] = await Promise.all([fin || D.mesPersonnes().length ? charger("personnes") : [], membre ? charger("versements") : []]);
     vers.sort((a, b) => ((a.dateVersement || "") + (a.numero || 0) < (b.dateVersement || "") + (b.numero || 0) ? 1 : -1));
@@ -585,7 +587,7 @@
     const aVerifier = fin ? ps.flatMap((p) => Object.entries(p.declarations || {}).filter(([, d]) => d.statut === "en attente").map(([id, d]) => ({ id, d, p }))).sort((a, b) => (a.d.envoye > b.d.envoye ? 1 : -1)) : [];
     const num = cfg.numero ? esc(cfg.numero) : "";
     let h = caisseTete(cfg, st);
-    if (!cfg.actif && !D.can("reglages")) h += `<div class="carte info">La caisse ouverte n'est pas encore activée par le club.</div>`;
+    if (!cfg.actif && !D.can("finances")) h += `<div class="carte info">La caisse ouverte n'est pas encore activée par le club.</div>`;
     if (cfg.numero) h += `<div class="carte"><h3>Comment cotiser</h3>${cfg.texte ? `<p>${esc(cfg.texte)}</p>` : ""}
       <button type="button" class="numero-pay" id="copier-num"><span>Wave · Orange Money</span><b>${num}</b><small>${esc(cfg.titulaire || "")}${cfg.titulaire ? " · " : ""}appuyez pour copier</small></button>
       <ol class="etapes"><li><b>Versez</b> le montant de votre choix, quand vous voulez : chaque jour, chaque semaine, une fois…</li><li><b>Faites une capture</b> de l'écran de confirmation.</li><li><b>Envoyez-la ici.</b> Le point focal vérifie et vous répond par sa contre-capture : votre versement entre dans la balance, visible par tous.</li></ol></div>`;
@@ -620,7 +622,7 @@
       h += `<div class="carte"><h3>Qui a cotisé combien</h3>${cl.map((x, i) => `<div class="barre-l classement"><span><i>${i + 1}</i>${esc(x.nom)}${x.id === moi ? " (moi)" : ""}</span><div class="jauge"><i style="width:${Math.max(3, Math.round((x.t / max) * 100))}%"></i></div><b>${argent(x.t)}</b></div>`).join("") || `<p class="muted">Pas encore de versement vérifié : soyez le premier !</p>`}</div>
         <div class="carte"><h3>Le registre</h3><p class="muted">Chaque ligne a sa preuve : la capture du cotisant et la contre-capture du point focal.</p>${vers.slice(0, 80).map((v) => `<div class="registre"><div class="ligne"><div><b>${esc(v.nom)}</b> · ${argent(v.montant)}<br><small class="muted">${esc(v.mode || "")} · ${dateFr(v.dateVersement)}${v.numero ? ` · reçu n° ${v.numero}` : ""} · vérifié ✓</small></div><button type="button" class="btn petit clair" data-preuve="${esc(v.id)}">Preuves</button></div><div class="preuves" hidden></div></div>`).join("") || `<p class="muted">Vide pour l'instant.</p>`}</div>`;
     }
-    if (D.can("reglages")) h += `<details class="carte"><summary><b>Réglages de la caisse</b></summary><form id="cfg-caisse" class="grille2">
+    if (D.can("finances")) h += `<details class="carte"><summary><b>Réglages de la caisse</b></summary><form id="cfg-caisse" class="grille2">
       <label class="case large"><input type="checkbox" name="actif" ${cfg.actif ? "checked" : ""}> Caisse ouverte activée (visible sur l'accueil)</label>
       <label>Numéro Wave / Orange Money<input name="numero" type="tel" value="${esc(cfg.numero || "")}" placeholder="77 000 00 00"></label>
       <label>Au nom de<input name="titulaire" value="${esc(cfg.titulaire || "")}"></label>
@@ -647,7 +649,7 @@
       await B.ecrire(S.clubId, "justificatifs", vid, { versementId: vid, capture: capture || "", contre: contre || "" });
       vider("versements");
       const tous = await charger("versements");
-      await B.ecrireReglage(S.clubId, "caisse", { stats: statsCaisse(tous) }).catch(() => {});
+      await B.ecrire(S.clubId, "caisses", "principale", { stats: statsCaisse(tous) }).catch(() => {});
       return n;
     }
     app.querySelectorAll("form.verif").forEach((f) => {
@@ -674,7 +676,7 @@
       z.hidden = false; z.querySelectorAll(".zoomable").forEach((i) => (i.onclick = () => i.classList.toggle("zoom")));
     })));
     const fc = $("#cfg-caisse"); if (fc) fc.onsubmit = (e) => { e.preventDefault(); action(async () => {
-      await B.ecrireReglage(S.clubId, "caisse", { actif: fc.actif.checked, numero: fc.numero.value.trim().slice(0, 30), titulaire: fc.titulaire.value.trim().slice(0, 60), objectif: Math.round(Number(fc.objectif.value)) || 0, focal: fc.focal.value.trim().slice(0, 30), texte: fc.texte.value.trim().slice(0, 300), ...(membre ? { stats: statsCaisse(vers) } : {}) }); S.caisseActive = fc.actif.checked; vueCotiser();
+      await B.ecrire(S.clubId, "caisses", "principale", { actif: fc.actif.checked, numero: fc.numero.value.trim().slice(0, 30), titulaire: fc.titulaire.value.trim().slice(0, 60), objectif: Math.round(Number(fc.objectif.value)) || 0, focal: fc.focal.value.trim().slice(0, 30), texte: fc.texte.value.trim().slice(0, 300), ...(membre ? { stats: statsCaisse(vers) } : {}) }); S.caisseActive = fc.actif.checked; vueCotiser();
     }, "Caisse enregistrée"); };
   }
 

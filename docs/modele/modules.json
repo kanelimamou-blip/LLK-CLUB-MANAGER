@@ -1,6 +1,6 @@
 {
   "_lisezmoi": "LE fichier du modèle. Chaque module déclare ses collections Firestore (sous clubs/{clubId}/), qui peut lire, quel droit faut-il pour écrire, et les champs. Après une modification : npm run regles (réécrit la politique dans firestore.rules). L'appli construit ses écrans (listes + fiches) à partir de ce même fichier.",
-  "version": 6,
+  "version": 7,
   "_aide": {
     "lire": "public = tout le monde (vitrine) ; public? = public si le document a public=true, sinon membres ; membre = membres actifs du club ; sinon le nom d'un droit (limité au périmètre du membre)",
     "ecrire": "le droit nécessaire pour créer, modifier, supprimer (toujours limité au périmètre : sections et catégories du membre)",
@@ -1537,6 +1537,54 @@
               "id": "contre",
               "type": "image",
               "label": "Contre-capture du point focal"
+            }
+          ]
+        },
+        {
+          "id": "caisses",
+          "nom": "Caisse ouverte : réglages et totaux",
+          "lire": "public",
+          "ecrire": "finances",
+          "colonnes": [
+            "numero",
+            "objectif"
+          ],
+          "champs": [
+            {
+              "id": "actif",
+              "type": "booleen",
+              "label": "Caisse ouverte activée"
+            },
+            {
+              "id": "numero",
+              "type": "tel",
+              "label": "Numéro Wave / Orange Money"
+            },
+            {
+              "id": "titulaire",
+              "type": "texte",
+              "label": "Au nom de"
+            },
+            {
+              "id": "objectif",
+              "type": "montant",
+              "label": "Objectif par mois"
+            },
+            {
+              "id": "focal",
+              "type": "tel",
+              "label": "WhatsApp du point focal"
+            },
+            {
+              "id": "texte",
+              "type": "texteLong",
+              "label": "Message d'appel"
+            },
+            {
+              "id": "stats",
+              "type": "map",
+              "label": "Totaux publics",
+              "systeme": true
             }
           ]
         }

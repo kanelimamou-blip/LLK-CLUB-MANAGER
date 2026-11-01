@@ -4,7 +4,7 @@
   "roles": {
     "vice_president": { "nom": "Vice-président", "niveau": 90, "droits": ["structure", "membres", "effectif", "sportif", "finances", "communication", "installations", "reglages"] },
     "secretaire": { "nom": "Secrétaire général", "niveau": 70, "droits": ["structure", "membres", "effectif", "communication"] },
-    "tresorier": { "nom": "Trésorier", "niveau": 70, "droits": ["finances"] },
+    "tresorier": { "nom": "Trésorier", "niveau": 70, "droits": ["finances", "effectif"] },
     "directeur_sportif": { "nom": "Directeur sportif", "niveau": 70, "droits": ["structure", "membres", "effectif", "sportif"] },
     "entraineur": { "nom": "Entraîneur", "niveau": 40, "droits": ["effectif", "sportif"] },
     "adjoint": { "nom": "Entraîneur adjoint / préparateur", "niveau": 30, "droits": ["sportif"] },
