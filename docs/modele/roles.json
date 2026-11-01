@@ -1,0 +1,15 @@
+{
+  "_lisezmoi": "Rôles de départ de chaque club. Le président (niveau 100, tous les droits) est nommé par l'admin de la plateforme ; il crée ou modifie ensuite ses rôles dans Réglages (document clubs/{id}/reglages/roles). 'membre' = joueur, parent ou supporter, sans droit de gestion : il voit ce qui le concerne. Le périmètre (sections ou catégories) se donne à chaque membre, pas au rôle : un entraîneur U13 et un entraîneur U17 ont le même rôle et des périmètres différents.",
+  "president": { "nom": "Président", "niveau": 100, "droits": ["*"] },
+  "roles": {
+    "vice_president": { "nom": "Vice-président", "niveau": 90, "droits": ["structure", "membres", "effectif", "sportif", "finances", "communication", "installations", "reglages"] },
+    "secretaire": { "nom": "Secrétaire général", "niveau": 70, "droits": ["structure", "membres", "effectif", "communication"] },
+    "tresorier": { "nom": "Trésorier", "niveau": 70, "droits": ["finances"] },
+    "directeur_sportif": { "nom": "Directeur sportif", "niveau": 70, "droits": ["structure", "membres", "effectif", "sportif"] },
+    "entraineur": { "nom": "Entraîneur", "niveau": 40, "droits": ["effectif", "sportif"] },
+    "adjoint": { "nom": "Entraîneur adjoint / préparateur", "niveau": 30, "droits": ["sportif"] },
+    "medecin": { "nom": "Staff médical", "niveau": 40, "droits": ["medical", "sportif"] },
+    "intendant": { "nom": "Intendant", "niveau": 30, "droits": ["installations"] },
+    "communication": { "nom": "Chargé de communication", "niveau": 30, "droits": ["communication"] }
+  }
+}

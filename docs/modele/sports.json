@@ -1,0 +1,47 @@
+{
+  "_lisezmoi": "Catalogue commun des sports (collection /sports, écrite par l'admin de la plateforme). Ajouter un sport = ajouter une entrée ici, rien d'autre : postes, formats, stats et catégories de départ suivent dans l'appli.",
+  "football": {
+    "nom": "Football", "icone": "⚽",
+    "formats": [{ "nom": "Football à 11", "joueurs": 11, "remplacants": 9, "periodes": 2, "minutes": 45 }, { "nom": "Football à 8", "joueurs": 8, "remplacants": 5, "periodes": 2, "minutes": 30 }, { "nom": "Foot à 5 / à 6", "joueurs": 6, "remplacants": 4, "periodes": 2, "minutes": 25 }],
+    "postes": ["Gardien", "Défenseur central", "Latéral droit", "Latéral gauche", "Milieu défensif", "Milieu", "Milieu offensif", "Ailier", "Attaquant"],
+    "stats": ["buts", "passes décisives", "tirs", "tirs cadrés", "cartons jaunes", "cartons rouges", "arrêts", "clean sheet"],
+    "categories": ["U7", "U9", "U11", "U13", "U15", "U17", "U19", "Seniors", "Vétérans"]
+  },
+  "basketball": {
+    "nom": "Basketball", "icone": "🏀",
+    "formats": [{ "nom": "5 contre 5", "joueurs": 5, "remplacants": 7, "periodes": 4, "minutes": 10 }, { "nom": "3x3", "joueurs": 3, "remplacants": 1, "periodes": 1, "minutes": 10 }],
+    "postes": ["Meneur", "Arrière", "Ailier", "Ailier fort", "Pivot"],
+    "stats": ["points", "rebonds", "passes décisives", "interceptions", "contres", "balles perdues", "fautes", "lancers francs réussis"],
+    "categories": ["U11", "U13", "U15", "U17", "U20", "Seniors"]
+  },
+  "handball": {
+    "nom": "Handball", "icone": "🤾",
+    "formats": [{ "nom": "7 contre 7", "joueurs": 7, "remplacants": 7, "periodes": 2, "minutes": 30 }],
+    "postes": ["Gardien", "Ailier gauche", "Arrière gauche", "Demi-centre", "Arrière droit", "Ailier droit", "Pivot"],
+    "stats": ["buts", "tirs", "passes décisives", "arrêts", "exclusions 2 min", "cartons"],
+    "categories": ["U11", "U13", "U15", "U17", "U19", "Seniors"]
+  },
+  "volleyball": {
+    "nom": "Volleyball", "icone": "🏐",
+    "formats": [{ "nom": "6 contre 6", "joueurs": 6, "remplacants": 6, "periodes": 5, "minutes": 0 }],
+    "postes": ["Passeur", "Réceptionneur-attaquant", "Central", "Pointu", "Libéro"],
+    "stats": ["points", "aces", "contres", "attaques réussies", "réceptions", "fautes"],
+    "categories": ["U13", "U15", "U17", "U20", "Seniors"]
+  },
+  "lutte": {
+    "nom": "Lutte", "icone": "🤼",
+    "formats": [{ "nom": "Combat", "joueurs": 1, "remplacants": 0, "periodes": 1, "minutes": 0 }],
+    "postes": ["Lutteur"],
+    "stats": ["victoires", "défaites", "nuls", "chutes infligées"],
+    "categories": ["Minimes", "Cadets", "Juniors", "Seniors"],
+    "individuel": true
+  },
+  "athletisme": {
+    "nom": "Athlétisme", "icone": "🏃",
+    "formats": [{ "nom": "Épreuve", "joueurs": 1, "remplacants": 0, "periodes": 1, "minutes": 0 }],
+    "postes": ["Sprint", "Demi-fond", "Fond", "Sauts", "Lancers"],
+    "stats": ["performance", "classement", "record personnel"],
+    "categories": ["Benjamins", "Minimes", "Cadets", "Juniors", "Seniors"],
+    "individuel": true
+  }
+}

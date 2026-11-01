@@ -1,0 +1,307 @@
+{
+  "_lisezmoi": "LE fichier du modèle. Chaque module déclare ses collections Firestore (sous clubs/{clubId}/), qui peut lire, quel droit faut-il pour écrire, et les champs. Après une modification : npm run regles (réécrit la politique dans firestore.rules). L'appli construit ses écrans (listes + fiches) à partir de ce même fichier.",
+  "_aide": {
+    "lire": "public = tout le monde (vitrine) ; public? = public si le document a public=true, sinon membres ; membre = membres actifs du club ; sinon le nom d'un droit (limité au périmètre du membre)",
+    "ecrire": "le droit nécessaire pour créer, modifier, supprimer (toujours limité au périmètre : sections et catégories du membre)",
+    "soi": "true = l'id du document EST la fiche de la personne (collection personnes)",
+    "perso": "true = le joueur concerné (personneId = sa fiche) et ses parents (enfants) lisent aussi le document",
+    "reponse": "champs que le joueur concerné (ou son parent) peut modifier lui-même, ex. sa réponse à une convocation",
+    "garder": "true = jamais supprimé (pièces comptables)",
+    "categorie": "true = le document porte sectionId et categorieId (le périmètre s'applique)",
+    "types": "texte, texteLong, nombre, montant, date, dateheure, heure, booleen, choix (options), ref (vers une collection), refs (plusieurs), tel, email, image, lien, liste, map"
+  },
+
+  "droits": {
+    "structure": "Sections, catégories, saisons",
+    "membres": "Comptes du club : accepter, donner un rôle et un périmètre",
+    "effectif": "Fiches joueurs et staff, licences, équipes, dossiers",
+    "sportif": "Planning, convocations, présences, pointage, stats",
+    "medical": "Blessures, aptitude, suivi médical (confidentiel)",
+    "finances": "Cotisations, échéances, encaissements, dépenses, sponsors",
+    "communication": "Actualités, galerie, annonces",
+    "installations": "Terrains et réservations",
+    "reglages": "Réglages et apparence du club"
+  },
+
+  "modules": [
+    {
+      "id": "base", "nom": "Club", "icone": "🏟️", "obligatoire": true,
+      "collections": [
+        { "id": "sections", "nom": "Sections (sports)", "lire": "public", "ecrire": "structure",
+          "colonnes": ["nom", "sportId"],
+          "champs": [
+            { "id": "nom", "type": "texte", "label": "Nom", "requis": true },
+            { "id": "sportId", "type": "ref", "ref": "/sports", "label": "Sport", "requis": true },
+            { "id": "responsable", "type": "texte", "label": "Responsable" },
+            { "id": "couleur", "type": "texte", "label": "Couleur" },
+            { "id": "ordre", "type": "nombre", "label": "Ordre" },
+            { "id": "actif", "type": "booleen", "label": "Active" }
+          ] },
+        { "id": "categories", "nom": "Catégories", "lire": "public", "ecrire": "structure", "categorie": true,
+          "colonnes": ["nom", "sectionId", "sexe"],
+          "champs": [
+            { "id": "nom", "type": "texte", "label": "Nom (ex. U13 garçons)", "requis": true },
+            { "id": "code", "type": "texte", "label": "Code (ex. U13)" },
+            { "id": "sexe", "type": "choix", "options": ["M", "F", "Mixte"], "label": "Sexe" },
+            { "id": "anneeMin", "type": "nombre", "label": "Né(e) à partir de" },
+            { "id": "anneeMax", "type": "nombre", "label": "Né(e) jusqu'à" },
+            { "id": "ordre", "type": "nombre", "label": "Ordre" },
+            { "id": "actif", "type": "booleen", "label": "Active" }
+          ] },
+        { "id": "saisons", "nom": "Saisons", "lire": "public", "ecrire": "structure",
+          "colonnes": ["nom", "courante"],
+          "champs": [
+            { "id": "nom", "type": "texte", "label": "Nom (ex. 2026-2027)", "requis": true },
+            { "id": "debut", "type": "date", "label": "Début" },
+            { "id": "fin", "type": "date", "label": "Fin" },
+            { "id": "courante", "type": "booleen", "label": "Saison en cours" }
+          ] }
+      ]
+    },
+
+    {
+      "id": "effectif", "nom": "Effectif", "icone": "👥",
+      "collections": [
+        { "id": "personnes", "nom": "Joueurs et staff", "lire": "effectif", "ecrire": "effectif", "perso": true, "soi": true, "categorie": true,
+          "reponse": ["tel", "photo", "contactUrgence"],
+          "colonnes": ["nom", "prenom", "type", "poste", "numero"],
+          "champs": [
+            { "id": "type", "type": "choix", "options": ["joueur", "staff technique", "staff médical", "dirigeant", "bénévole"], "label": "Type", "requis": true },
+            { "id": "prenom", "type": "texte", "label": "Prénom", "requis": true },
+            { "id": "nom", "type": "texte", "label": "Nom", "requis": true },
+            { "id": "naissance", "type": "date", "label": "Date de naissance" },
+            { "id": "sexe", "type": "choix", "options": ["M", "F"], "label": "Sexe" },
+            { "id": "tel", "type": "tel", "label": "Téléphone" },
+            { "id": "email", "type": "email", "label": "E-mail" },
+            { "id": "quartier", "type": "texte", "label": "Quartier" },
+            { "id": "photo", "type": "image", "label": "Photo" },
+            { "id": "poste", "type": "texte", "label": "Poste ou fonction", "selonSport": "postes" },
+            { "id": "numero", "type": "nombre", "label": "Numéro de maillot" },
+            { "id": "lateralite", "type": "choix", "options": ["droitier", "gaucher", "les deux"], "label": "Pied/main fort(e)" },
+            { "id": "taille", "type": "nombre", "label": "Taille (cm)" },
+            { "id": "poids", "type": "nombre", "label": "Poids (kg)" },
+            { "id": "parents", "type": "liste", "label": "Parents ou tuteurs (nom, téléphone)" },
+            { "id": "contactUrgence", "type": "tel", "label": "Contact d'urgence" },
+            { "id": "ecole", "type": "texte", "label": "École / profession" },
+            { "id": "statut", "type": "choix", "options": ["actif", "essai", "blessé", "prêté", "parti"], "label": "Statut" },
+            { "id": "uid", "type": "texte", "label": "Compte lié (identifiant)", "cache": true },
+            { "id": "notes", "type": "texteLong", "label": "Notes du staff" }
+          ] },
+        { "id": "licences", "nom": "Licences", "lire": "effectif", "ecrire": "effectif", "perso": true, "categorie": true,
+          "colonnes": ["personneId", "saison", "statut"],
+          "champs": [
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Personne", "requis": true },
+            { "id": "saison", "type": "ref", "ref": "saisons", "label": "Saison", "requis": true },
+            { "id": "numero", "type": "texte", "label": "N° de licence" },
+            { "id": "federation", "type": "texte", "label": "Fédération / ligue" },
+            { "id": "statut", "type": "choix", "options": ["à faire", "dossier incomplet", "envoyée", "validée"], "label": "Statut" },
+            { "id": "certificatMedical", "type": "date", "label": "Certificat médical du" },
+            { "id": "photoOk", "type": "booleen", "label": "Photo fournie" }
+          ] },
+        { "id": "equipes", "nom": "Équipes", "lire": "public", "ecrire": "effectif", "categorie": true,
+          "colonnes": ["nom", "categorieId", "competition"],
+          "champs": [
+            { "id": "nom", "type": "texte", "label": "Nom (ex. U15 A)", "requis": true },
+            { "id": "saison", "type": "ref", "ref": "saisons", "label": "Saison" },
+            { "id": "competition", "type": "texte", "label": "Championnat / niveau" },
+            { "id": "entraineurs", "type": "refs", "ref": "personnes", "label": "Staff" },
+            { "id": "joueurs", "type": "liste", "label": "Effectif affiché (nom, numéro, poste)" },
+            { "id": "logo", "type": "image", "label": "Photo d'équipe" },
+            { "id": "ordre", "type": "nombre", "label": "Ordre" }
+          ] },
+        { "id": "documents", "nom": "Dossiers", "lire": "effectif", "ecrire": "effectif", "perso": true, "categorie": true,
+          "colonnes": ["personneId", "type", "expire"],
+          "champs": [
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Personne", "requis": true },
+            { "id": "type", "type": "choix", "options": ["pièce d'identité", "extrait de naissance", "autorisation parentale", "certificat médical", "contrat", "autre"], "label": "Type" },
+            { "id": "nom", "type": "texte", "label": "Nom" },
+            { "id": "url", "type": "lien", "label": "Fichier" },
+            { "id": "expire", "type": "date", "label": "Expire le" }
+          ] }
+      ]
+    },
+
+    {
+      "id": "sportif", "nom": "Sportif", "icone": "📅",
+      "collections": [
+        { "id": "evenements", "nom": "Planning", "lire": "public?", "ecrire": "sportif", "categorie": true,
+          "colonnes": ["debut", "type", "titre", "adversaire"],
+          "champs": [
+            { "id": "type", "type": "choix", "options": ["entraînement", "match", "tournoi", "stage", "réunion", "soin"], "label": "Type", "requis": true },
+            { "id": "titre", "type": "texte", "label": "Titre" },
+            { "id": "debut", "type": "dateheure", "label": "Début", "requis": true },
+            { "id": "fin", "type": "dateheure", "label": "Fin" },
+            { "id": "rdv", "type": "heure", "label": "Rendez-vous" },
+            { "id": "lieu", "type": "texte", "label": "Lieu" },
+            { "id": "terrainId", "type": "ref", "ref": "terrains", "label": "Terrain" },
+            { "id": "equipeId", "type": "ref", "ref": "equipes", "label": "Équipe" },
+            { "id": "adversaire", "type": "texte", "label": "Adversaire" },
+            { "id": "domicile", "type": "booleen", "label": "À domicile" },
+            { "id": "competition", "type": "texte", "label": "Compétition" },
+            { "id": "contenu", "type": "texteLong", "label": "Contenu de la séance" },
+            { "id": "scoreNous", "type": "nombre", "label": "Score (nous)" },
+            { "id": "scoreEux", "type": "nombre", "label": "Score (eux)" },
+            { "id": "statut", "type": "choix", "options": ["prévu", "confirmé", "annulé", "joué"], "label": "Statut" },
+            { "id": "public", "type": "booleen", "label": "Visible sur la vitrine" }
+          ] },
+        { "id": "convocations", "nom": "Convocations", "lire": "sportif", "ecrire": "sportif", "perso": true, "categorie": true,
+          "reponse": ["reponse", "commentaire"],
+          "colonnes": ["evenementId", "personneId", "reponse"],
+          "champs": [
+            { "id": "evenementId", "type": "ref", "ref": "evenements", "label": "Événement", "requis": true },
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Joueur", "requis": true },
+            { "id": "role", "type": "choix", "options": ["titulaire", "remplaçant", "réserve"], "label": "Rôle" },
+            { "id": "reponse", "type": "choix", "options": ["en attente", "présent", "absent", "incertain"], "label": "Réponse" },
+            { "id": "commentaire", "type": "texte", "label": "Commentaire" }
+          ] },
+        { "id": "presences", "nom": "Présences", "lire": "sportif", "ecrire": "sportif", "perso": true, "categorie": true,
+          "colonnes": ["evenementId", "personneId", "statut"],
+          "champs": [
+            { "id": "evenementId", "type": "ref", "ref": "evenements", "label": "Événement", "requis": true },
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Personne", "requis": true },
+            { "id": "statut", "type": "choix", "options": ["présent", "retard", "absent excusé", "absent", "blessé"], "label": "Statut" },
+            { "id": "retardMin", "type": "nombre", "label": "Retard (min)" },
+            { "id": "note", "type": "nombre", "label": "Note de séance (1-10)" },
+            { "id": "commentaire", "type": "texte", "label": "Commentaire" }
+          ] },
+        { "id": "stats", "nom": "Statistiques de match", "lire": "membre", "ecrire": "sportif", "categorie": true,
+          "colonnes": ["evenementId", "personneId", "minutes"],
+          "champs": [
+            { "id": "evenementId", "type": "ref", "ref": "evenements", "label": "Match", "requis": true },
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Joueur", "requis": true },
+            { "id": "minutes", "type": "nombre", "label": "Minutes jouées" },
+            { "id": "valeurs", "type": "map", "label": "Stats (selon le sport)", "selonSport": "stats" },
+            { "id": "note", "type": "nombre", "label": "Note (1-10)" }
+          ] },
+        { "id": "evaluations", "nom": "Évaluations", "lire": "sportif", "ecrire": "sportif", "perso": true, "categorie": true,
+          "colonnes": ["personneId", "date"],
+          "champs": [
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Joueur", "requis": true },
+            { "id": "date", "type": "date", "label": "Date" },
+            { "id": "criteres", "type": "map", "label": "Critères (technique, physique, mental…)" },
+            { "id": "tests", "type": "map", "label": "Tests physiques (VMA, sprint…)" },
+            { "id": "commentaire", "type": "texteLong", "label": "Commentaire" }
+          ] },
+        { "id": "blessures", "nom": "Suivi médical", "lire": "medical", "ecrire": "medical", "perso": true, "categorie": true,
+          "colonnes": ["personneId", "date", "apte"],
+          "champs": [
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Personne", "requis": true },
+            { "id": "date", "type": "date", "label": "Date" },
+            { "id": "type", "type": "texte", "label": "Blessure / motif" },
+            { "id": "gravite", "type": "choix", "options": ["légère", "moyenne", "grave"], "label": "Gravité" },
+            { "id": "soins", "type": "texteLong", "label": "Soins et consignes" },
+            { "id": "retourPrevu", "type": "date", "label": "Retour prévu" },
+            { "id": "apte", "type": "choix", "options": ["inapte", "reprise adaptée", "apte"], "label": "Aptitude" }
+          ] }
+      ]
+    },
+
+    {
+      "id": "finances", "nom": "Finances", "icone": "💰",
+      "collections": [
+        { "id": "cotisations", "nom": "Tarifs de cotisation", "lire": "membre", "ecrire": "finances", "categorie": true,
+          "colonnes": ["nom", "saison", "montant"],
+          "champs": [
+            { "id": "nom", "type": "texte", "label": "Nom", "requis": true },
+            { "id": "saison", "type": "ref", "ref": "saisons", "label": "Saison" },
+            { "id": "montant", "type": "montant", "label": "Montant annuel", "requis": true },
+            { "id": "echeances", "type": "liste", "label": "Échéances (date, montant)" },
+            { "id": "reductions", "type": "texte", "label": "Réductions (fratrie, boursier…)" }
+          ] },
+        { "id": "echeances", "nom": "Échéances", "lire": "finances", "ecrire": "finances", "perso": true, "categorie": true,
+          "colonnes": ["personneId", "libelle", "montant", "du", "statut"],
+          "champs": [
+            { "id": "personneId", "type": "ref", "ref": "personnes", "label": "Personne", "requis": true },
+            { "id": "cotisationId", "type": "ref", "ref": "cotisations", "label": "Cotisation" },
+            { "id": "libelle", "type": "texte", "label": "Libellé" },
+            { "id": "montant", "type": "montant", "label": "Montant", "requis": true },
+            { "id": "du", "type": "date", "label": "À payer avant le" },
+            { "id": "paye", "type": "montant", "label": "Déjà payé" },
+            { "id": "statut", "type": "choix", "options": ["à payer", "partiel", "payé", "exonéré"], "label": "Statut" }
+          ] },
+        { "id": "depenses", "nom": "Dépenses", "lire": "finances", "ecrire": "finances", "garder": true, "categorie": true,
+          "colonnes": ["date", "libelle", "montant"],
+          "champs": [
+            { "id": "date", "type": "date", "label": "Date", "requis": true },
+            { "id": "libelle", "type": "texte", "label": "Libellé", "requis": true },
+            { "id": "montant", "type": "montant", "label": "Montant", "requis": true },
+            { "id": "poste", "type": "choix", "options": ["transport", "arbitrage", "équipement", "terrain", "primes", "médical", "salaires", "autre"], "label": "Poste" },
+            { "id": "mode", "type": "choix", "options": ["espèces", "wave", "orange money", "virement", "chèque"], "label": "Mode" },
+            { "id": "justificatif", "type": "lien", "label": "Justificatif" }
+          ] },
+        { "id": "sponsors", "nom": "Sponsors et subventions", "lire": "finances", "ecrire": "finances",
+          "colonnes": ["nom", "montant", "fin"],
+          "champs": [
+            { "id": "nom", "type": "texte", "label": "Nom", "requis": true },
+            { "id": "contact", "type": "tel", "label": "Contact" },
+            { "id": "montant", "type": "montant", "label": "Montant" },
+            { "id": "debut", "type": "date", "label": "Début" },
+            { "id": "fin", "type": "date", "label": "Fin" },
+            { "id": "contreparties", "type": "texteLong", "label": "Contreparties" },
+            { "id": "logo", "type": "image", "label": "Logo" }
+          ] }
+      ]
+    },
+
+    {
+      "id": "communication", "nom": "Communication", "icone": "📣",
+      "collections": [
+        { "id": "actualites", "nom": "Actualités", "lire": "public?", "ecrire": "communication", "categorie": true,
+          "colonnes": ["date", "titre"],
+          "champs": [
+            { "id": "titre", "type": "texte", "label": "Titre", "requis": true },
+            { "id": "texte", "type": "texteLong", "label": "Texte" },
+            { "id": "image", "type": "image", "label": "Image" },
+            { "id": "date", "type": "date", "label": "Date" },
+            { "id": "epingle", "type": "booleen", "label": "Épinglée" },
+            { "id": "public", "type": "booleen", "label": "Visible sur la vitrine" }
+          ] },
+        { "id": "galerie", "nom": "Galerie", "lire": "public?", "ecrire": "communication", "categorie": true,
+          "colonnes": ["album", "titre"],
+          "champs": [
+            { "id": "titre", "type": "texte", "label": "Titre" },
+            { "id": "url", "type": "image", "label": "Photo ou vidéo", "requis": true },
+            { "id": "album", "type": "texte", "label": "Album" },
+            { "id": "date", "type": "date", "label": "Date" },
+            { "id": "public", "type": "booleen", "label": "Visible sur la vitrine" }
+          ] },
+        { "id": "annonces", "nom": "Annonces aux membres", "lire": "membre", "ecrire": "communication", "categorie": true,
+          "colonnes": ["date", "titre"],
+          "champs": [
+            { "id": "titre", "type": "texte", "label": "Titre", "requis": true },
+            { "id": "texte", "type": "texteLong", "label": "Message" },
+            { "id": "date", "type": "date", "label": "Date" },
+            { "id": "cible", "type": "choix", "options": ["tous", "joueurs", "parents", "staff"], "label": "Pour" },
+            { "id": "expire", "type": "date", "label": "Jusqu'au" }
+          ] }
+      ]
+    },
+
+    {
+      "id": "installations", "nom": "Installations", "icone": "🥅",
+      "collections": [
+        { "id": "terrains", "nom": "Terrains et salles", "lire": "public", "ecrire": "installations",
+          "colonnes": ["nom", "type"],
+          "champs": [
+            { "id": "nom", "type": "texte", "label": "Nom", "requis": true },
+            { "id": "type", "type": "choix", "options": ["terrain", "salle", "gymnase", "piscine", "autre"], "label": "Type" },
+            { "id": "surface", "type": "texte", "label": "Surface" },
+            { "id": "sports", "type": "refs", "ref": "/sports", "label": "Sports possibles" },
+            { "id": "adresse", "type": "texte", "label": "Adresse" },
+            { "id": "actif", "type": "booleen", "label": "Disponible" }
+          ] },
+        { "id": "reservations", "nom": "Réservations", "lire": "membre", "ecrire": "installations",
+          "colonnes": ["date", "heure", "terrainId", "objet"],
+          "champs": [
+            { "id": "terrainId", "type": "ref", "ref": "terrains", "label": "Terrain", "requis": true },
+            { "id": "date", "type": "date", "label": "Date", "requis": true },
+            { "id": "heure", "type": "heure", "label": "Heure", "requis": true },
+            { "id": "duree", "type": "nombre", "label": "Durée (min)" },
+            { "id": "objet", "type": "texte", "label": "Objet" },
+            { "id": "equipeId", "type": "ref", "ref": "equipes", "label": "Équipe" },
+            { "id": "montant", "type": "montant", "label": "Montant (location externe)" }
+          ] }
+      ]
+    }
+  ]
+}

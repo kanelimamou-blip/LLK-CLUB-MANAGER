@@ -1,0 +1,81 @@
+{
+  "_lisezmoi": "Club d'exemple : sert au mode démo (sans Firebase) et à « npm run seed » (émulateur). Même forme que dans Firestore : club = clubs/{id}, puis une liste de documents par collection.",
+  "id": "as-exemple",
+  "club": {
+    "nom": "AS Exemple Dakar", "nomCourt": "AS Exemple", "ville": "Dakar", "pays": "Sénégal", "devise": "F CFA",
+    "couleurs": { "principale": "#0B5D3B", "accent": "#F2B705" }, "logo": "",
+    "slogan": "Former, jouer, gagner ensemble.", "tel": "77 000 00 00", "whatsapp": "221770000000",
+    "active": true, "modules": ["effectif", "sportif", "finances", "communication", "installations"], "offre": "complète"
+  },
+  "membres": {
+    "demo-president": { "nom": "Président (démo)", "role": "president", "perimetre": ["*"], "personneId": "", "enfants": [], "actif": true },
+    "demo-tresorier": { "nom": "Trésorière (démo)", "role": "tresorier", "perimetre": ["*"], "personneId": "", "enfants": [], "actif": true },
+    "demo-ds-foot": { "nom": "Directeur sportif foot (démo)", "role": "directeur_sportif", "perimetre": ["foot"], "personneId": "", "enfants": [], "actif": true },
+    "demo-coach-u13": { "nom": "Coach U13 (démo)", "role": "entraineur", "perimetre": ["foot-u13"], "personneId": "s1", "enfants": [], "actif": true },
+    "demo-medecin": { "nom": "Kiné (démo)", "role": "medecin", "perimetre": ["*"], "personneId": "s2", "enfants": [], "actif": true },
+    "demo-joueur": { "nom": "Moussa (joueur U13)", "role": "membre", "perimetre": [], "personneId": "p1", "enfants": [], "actif": true },
+    "demo-parent": { "nom": "Parent de Moussa", "role": "membre", "perimetre": [], "personneId": "", "enfants": ["p1"], "actif": true }
+  },
+  "collections": {
+    "saisons": { "2026-2027": { "nom": "2026-2027", "debut": "2026-09-01", "fin": "2027-07-31", "courante": true } },
+    "sections": {
+      "foot": { "nom": "Football", "sportId": "football", "sectionId": "foot", "ordre": 1, "actif": true },
+      "basket": { "nom": "Basketball", "sportId": "basketball", "sectionId": "basket", "ordre": 2, "actif": true },
+      "hand": { "nom": "Handball", "sportId": "handball", "sectionId": "hand", "ordre": 3, "actif": true }
+    },
+    "categories": {
+      "foot-u13": { "nom": "U13 garçons", "code": "U13", "sexe": "M", "anneeMin": 2014, "anneeMax": 2015, "sectionId": "foot", "categorieId": "foot-u13", "ordre": 1 },
+      "foot-u17": { "nom": "U17 garçons", "code": "U17", "sexe": "M", "anneeMin": 2010, "anneeMax": 2011, "sectionId": "foot", "categorieId": "foot-u17", "ordre": 2 },
+      "foot-seniors-f": { "nom": "Seniors féminines", "code": "SF", "sexe": "F", "sectionId": "foot", "categorieId": "foot-seniors-f", "ordre": 3 },
+      "basket-u17": { "nom": "U17 mixte", "code": "U17", "sexe": "Mixte", "sectionId": "basket", "categorieId": "basket-u17", "ordre": 1 },
+      "hand-seniors": { "nom": "Seniors", "code": "SEN", "sexe": "M", "sectionId": "hand", "categorieId": "hand-seniors", "ordre": 1 }
+    },
+    "personnes": {
+      "p1": { "type": "joueur", "prenom": "Moussa", "nom": "Diop", "naissance": "2014-03-12", "sexe": "M", "poste": "Milieu", "numero": 8, "statut": "actif", "tel": "", "parents": ["Fatou Diop 77 111 11 11"], "sectionId": "foot", "categorieId": "foot-u13" },
+      "p2": { "type": "joueur", "prenom": "Ibrahima", "nom": "Sarr", "naissance": "2014-07-02", "sexe": "M", "poste": "Gardien", "numero": 1, "statut": "actif", "sectionId": "foot", "categorieId": "foot-u13" },
+      "p3": { "type": "joueur", "prenom": "Cheikh", "nom": "Ndiaye", "naissance": "2010-01-20", "sexe": "M", "poste": "Attaquant", "numero": 9, "statut": "blessé", "sectionId": "foot", "categorieId": "foot-u17" },
+      "p4": { "type": "joueur", "prenom": "Awa", "nom": "Fall", "naissance": "2010-05-05", "sexe": "F", "poste": "Meneur", "numero": 4, "statut": "actif", "sectionId": "basket", "categorieId": "basket-u17" },
+      "s1": { "type": "staff technique", "prenom": "Abdou", "nom": "Ba", "poste": "Entraîneur principal", "sectionId": "foot", "categorieId": "foot-u13" },
+      "s2": { "type": "staff médical", "prenom": "Aïssatou", "nom": "Gueye", "poste": "Kinésithérapeute" }
+    },
+    "equipes": {
+      "u13a": { "nom": "U13 A", "saison": "2026-2027", "competition": "Championnat départemental", "joueurs": ["8 Moussa Diop", "1 Ibrahima Sarr"], "sectionId": "foot", "categorieId": "foot-u13" },
+      "u17a": { "nom": "U17 A", "saison": "2026-2027", "competition": "Ligue de Dakar", "sectionId": "foot", "categorieId": "foot-u17" },
+      "bu17": { "nom": "U17 basket", "saison": "2026-2027", "sectionId": "basket", "categorieId": "basket-u17" }
+    },
+    "evenements": {
+      "e1": { "type": "entraînement", "titre": "Séance technique", "debut": "@J+1T18:00", "fin": "@J+1T19:30", "lieu": "Terrain municipal", "equipeId": "u13a", "statut": "prévu", "sectionId": "foot", "categorieId": "foot-u13" },
+      "e2": { "type": "match", "titre": "U13 A - Médina FC", "debut": "@J+5T10:00", "lieu": "Stade Iba Mar Diop", "equipeId": "u13a", "adversaire": "Médina FC", "domicile": true, "statut": "prévu", "public": true, "sectionId": "foot", "categorieId": "foot-u13" },
+      "e3": { "type": "match", "titre": "U17 A - Guédiawaye", "debut": "@J-2T16:00", "equipeId": "u17a", "adversaire": "Guédiawaye", "scoreNous": 2, "scoreEux": 1, "statut": "joué", "public": true, "sectionId": "foot", "categorieId": "foot-u17" },
+      "e4": { "type": "entraînement", "titre": "Basket U17", "debut": "@J+2T17:00", "equipeId": "bu17", "statut": "prévu", "sectionId": "basket", "categorieId": "basket-u17" }
+    },
+    "convocations": {
+      "e2_p1": { "evenementId": "e2", "personneId": "p1", "role": "titulaire", "reponse": "en attente", "sectionId": "foot", "categorieId": "foot-u13" },
+      "e2_p2": { "evenementId": "e2", "personneId": "p2", "role": "titulaire", "reponse": "présent", "sectionId": "foot", "categorieId": "foot-u13" }
+    },
+    "blessures": {
+      "b1": { "personneId": "p3", "date": "@J-6", "type": "Entorse cheville", "gravite": "moyenne", "retourPrevu": "@J+10", "apte": "inapte", "sectionId": "foot", "categorieId": "foot-u17" }
+    },
+    "cotisations": {
+      "c-u13": { "nom": "Cotisation U13", "saison": "2026-2027", "montant": 30000, "reductions": "-20 % à partir du 2e enfant", "sectionId": "foot", "categorieId": "foot-u13" }
+    },
+    "echeances": {
+      "ech1": { "personneId": "p1", "cotisationId": "c-u13", "libelle": "1er versement", "montant": 15000, "du": "@J+3", "paye": 0, "statut": "à payer", "sectionId": "foot", "categorieId": "foot-u13" },
+      "ech2": { "personneId": "p2", "cotisationId": "c-u13", "libelle": "1er versement", "montant": 15000, "du": "@J+3", "paye": 15000, "statut": "payé", "sectionId": "foot", "categorieId": "foot-u13" }
+    },
+    "depenses": {
+      "d1": { "date": "@J-2", "libelle": "Transport U17 (car)", "montant": 25000, "poste": "transport", "mode": "wave", "sectionId": "foot", "categorieId": "foot-u17" }
+    },
+    "actualites": {
+      "a1": { "titre": "Victoire des U17 contre Guédiawaye (2-1)", "texte": "Belle réaction de nos jeunes en seconde période.", "date": "@J-2", "public": true },
+      "a2": { "titre": "Réunion des parents samedi", "texte": "Point sur les cotisations et les déplacements.", "date": "@J", "public": false }
+    },
+    "annonces": {
+      "an1": { "titre": "Maillots disponibles", "texte": "Passez au secrétariat avec votre reçu.", "date": "@J", "cible": "tous" }
+    },
+    "terrains": {
+      "t1": { "nom": "Terrain municipal", "type": "terrain", "surface": "synthétique", "actif": true },
+      "t2": { "nom": "Gymnase du lycée", "type": "gymnase", "actif": true }
+    }
+  }
+}

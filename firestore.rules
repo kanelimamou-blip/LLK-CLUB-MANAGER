@@ -1,0 +1,249 @@
+rules_version = '2';
+// Règles communes de la plateforme de gestion de clubs (tous les clubs, tous les sports), à coller UNE fois
+// dans la console Firebase (Firestore > Règles). Elles ne contiennent aucun club, aucun sport, aucune collection métier :
+// les données de chaque club vivent sous clubs/{clubId}/, et le modèle (qui lit, qui écrit, quels champs, rôles de départ)
+// est un document Firestore, plateforme/modele, que l'admin publie depuis l'appli (#admin > Modèle).
+// Seul changement à faire à la main : l'identifiant de l'admin dans admin() ci-dessous (le même que dans docs/config.js).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Généralités ----------
+    function signedIn() { return request.auth != null; }
+    function admin() { return signedIn() && request.auth.uid in ['ADMIN_UID_A_REMPLACER']; }
+    function str(v, max) { return v is string && v.size() <= max; }
+    function d() { return request.resource.data; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    // compte inscrit et non suspendu par l'admin
+    function actif() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true; }
+    // chaque écriture dans un club porte la date du serveur et son auteur (traçabilité)
+    function audit() { return d().maj == request.time && d().par == request.auth.uid; }
+
+    // ---------- Club, membre, rôle, droits, périmètre ----------
+    function clubData(c) { return get(/databases/$(database)/documents/clubs/$(c)).data; }
+    // club actif (licence payée) et module souscrit ; 'base' est toujours là
+    function moduleOn(c, mod) { return clubData(c).active == true && (mod == 'base' || mod in clubData(c).modules); }
+    function mPath(c) { return /databases/$(database)/documents/clubs/$(c)/membres/$(request.auth.uid); }
+    function membre(c) { return actif() && exists(mPath(c)) && get(mPath(c)).data.actif == true; }
+    function m(c) { return get(mPath(c)).data; }
+    function rolesMap(c) {
+      return exists(/databases/$(database)/documents/clubs/$(c)/reglages/roles) ? get(/databases/$(database)/documents/clubs/$(c)/reglages/roles).data.roles : rolesDefaut();
+    }
+    function president(c) { return membre(c) && m(c).role == 'president'; }
+    // R = table des rôles du club, calculée une fois et passée en paramètre (limite de 1000 expressions par requête)
+    function aDroit(r, R, droit) { return r == 'president' || (r in R && droit in R[r].droits); }
+    function can(c, droit) { return membre(c) && aDroit(m(c).role, rolesMap(c), droit); }
+    // niveau d'un rôle : président 100, membre (joueur, parent, supporter) 0, les autres de 1 à 99
+    function niveau(R, r) { return r == 'president' ? 100 : (r in R ? (R[r].niveau < 100 ? R[r].niveau : 99) : 0); }
+    // périmètre du membre : '*' = tout le club, sinon une liste d'ids de sections et de catégories
+    function dansPerimetre(c, data) {
+      let p = m(c).get('perimetre', []);
+      return m(c).role == 'president' || '*' in p || data.get('sectionId', '-') in p || data.get('categorieId', '-') in p;
+    }
+    // le joueur concerné par le document, ou son parent (enfants = ids de fiches personnes)
+    function concerne(c, data) {
+      return membre(c) && (
+        (m(c).get('personneId', '') != '' && data.get('personneId', '-') == m(c).get('personneId', ''))
+        || data.get('personneId', '-') in m(c).get('enfants', []));
+    }
+
+    // la fiche elle-même (collection personnes : l'id du document est la fiche)
+    function soiMeme(c, id) {
+      return membre(c) && ((m(c).get('personneId', '') != '' && id == m(c).get('personneId', '')) || id in m(c).get('enfants', []));
+    }
+
+    // ---------- Le modèle vit dans Firestore (plateforme/modele), pas dans ces règles ----------
+    // Ajouter un module, une collection, un champ, un droit ou un rôle de départ = publier le modèle depuis l'espace
+    // admin de l'appli. Ces règles se collent UNE fois dans la console et ne changent plus.
+    // politique[col] = { m: module, l: lecture, e: droit d'écriture, perso, soi, garder, rep: [...], champs: [...] }
+    function modele() { return get(/databases/$(database)/documents/plateforme/modele).data; }
+    function politique(col) { return col in modele().politique ? modele().politique[col] : null; }
+    function rolesDefaut() { return modele().roles; }
+
+    // L'admin de la plateforme lit tout pour le support.
+    match /{document=**} { allow read: if admin(); }
+
+    // ---------- Comptes (un compte = une personne, membre d'un ou plusieurs clubs) ----------
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && d().keys().hasOnly(['nom', 'email', 'tel', 'created', 'lastSeen', 'active', 'clubs'])
+        && d().active == true && d().created == request.time && d().lastSeen == request.time
+        && str(d().nom, 80) && str(d().email, 120) && str(d().tel, 30) && d().get('clubs', []) is list;
+      allow update: if signedIn() && request.auth.uid == uid && resource.data.active == true
+        && changed().hasOnly(['nom', 'tel', 'lastSeen', 'clubs'])
+        && d().lastSeen == request.time && str(d().nom, 80) && str(d().get('tel', ''), 30)
+        && d().get('clubs', []) is list && d().get('clubs', []).size() <= 20;
+      // l'admin suspend ou réactive un compte, et rien d'autre
+      allow update: if admin() && changed().hasOnly(['active']) && d().active is bool;
+      allow delete: if false;
+    }
+
+    // ---------- Plateforme : modèle publié par l'admin, lisible par l'appli ----------
+    match /plateforme/{id} {
+      allow read: if true;
+      allow write: if admin();
+    }
+
+    // ---------- Catalogue des sports (commun à tous les clubs) ----------
+    match /sports/{id} {
+      allow read: if true;
+      allow write: if admin();
+    }
+
+    // ---------- Erreurs remontées par les téléphones ----------
+    match /erreurs/{id} {
+      allow create: if signedIn()
+        && d().keys().hasOnly(['kind', 'msg', 'route', 'uid', 'club', 'role', 'ua', 'at'])
+        && d().uid == request.auth.uid && d().kind in ['plantage', 'refus']
+        && str(d().msg, 500) && str(d().route, 80) && str(d().get('club', ''), 60)
+        && str(d().get('role', ''), 30) && str(d().ua, 200) && d().at == request.time;
+      allow delete: if admin();
+      allow update: if false;
+    }
+
+    // ---------- Clubs ----------
+    match /clubs/{c} {
+      // fiche du club : vitrine publique (nom, logo, couleurs, contacts, sections)
+      allow read: if true;
+      // l'admin crée le club et gère la licence : actif, modules souscrits, offre
+      allow create: if admin()
+        && d().keys().hasOnly(['nom', 'nomCourt', 'slug', 'ville', 'pays', 'devise', 'logo', 'couleurs', 'tel', 'whatsapp', 'email', 'adresse', 'reseaux', 'slogan', 'active', 'modules', 'offre', 'maj', 'par'])
+        && str(d().nom, 80) && d().active is bool && d().modules is list && audit();
+      allow update: if admin() && changed().hasOnly(['active', 'modules', 'offre', 'maj', 'par'])
+        && d().active is bool && d().modules is list && audit();
+      // le président (ou le droit Réglages) gère tout le reste de la fiche, jamais la licence
+      allow update: if moduleOn(c, 'base') && can(c, 'reglages')
+        && changed().hasOnly(['nom', 'nomCourt', 'slug', 'ville', 'pays', 'devise', 'logo', 'couleurs', 'tel', 'whatsapp', 'email', 'adresse', 'reseaux', 'slogan', 'maj', 'par'])
+        && str(d().nom, 80) && audit();
+      allow delete: if false;
+
+      // ----- Membres du club : rôle et périmètre de chaque compte -----
+      match /membres/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow read: if moduleOn(c, 'base') && can(c, 'membres');
+        // demande d'adhésion : le compte se crée lui-même membre simple, inactif, sans périmètre
+        allow create: if actif() && request.auth.uid == uid && clubData(c).active == true
+          && d().keys().hasOnly(['nom', 'tel', 'role', 'perimetre', 'personneId', 'enfants', 'actif', 'depuis', 'message', 'maj', 'par'])
+          && d().role == 'membre' && d().actif == false && d().perimetre.size() == 0 && d().enfants.size() == 0
+          && d().personneId == '' && d().depuis == request.time && str(d().nom, 80) && str(d().tel, 30)
+          && str(d().get('message', ''), 300) && audit();
+        // le membre met à jour son nom et son téléphone, rien d'autre
+        allow update: if membre(c) && request.auth.uid == uid
+          && changed().hasOnly(['nom', 'tel', 'maj', 'par']) && str(d().nom, 80) && str(d().tel, 30) && audit();
+        // droit Membres : accepter, lier à une fiche, donner un rôle et un périmètre, toujours sous son propre niveau
+        // et dans son propre périmètre (un responsable foot ne donne pas accès au basket)
+        function attribution(R, moi) {
+          return aDroit(moi.role, R, 'membres')
+            && changed().hasOnly(['role', 'perimetre', 'personneId', 'enfants', 'actif', 'maj', 'par'])
+            && (d().role == 'membre' || d().role in R)
+            && niveau(R, resource.data.role) < niveau(R, moi.role) && niveau(R, d().role) < niveau(R, moi.role)
+            && d().perimetre is list && d().perimetre.size() <= 30
+            && (moi.role == 'president' || '*' in moi.perimetre || d().perimetre.hasOnly(moi.perimetre))
+            && d().enfants is list && d().enfants.size() <= 10 && str(d().personneId, 60) && d().actif is bool && audit();
+        }
+        allow update: if moduleOn(c, 'base') && membre(c) && request.auth.uid != uid && attribution(rolesMap(c), m(c));
+        // l'admin de la plateforme nomme (ou retire) le président du club
+        allow create, update: if admin()
+          && d().keys().hasOnly(['nom', 'tel', 'role', 'perimetre', 'personneId', 'enfants', 'actif', 'depuis', 'maj', 'par'])
+          && d().role in ['president', 'membre'] && d().actif is bool && audit();
+        function retrait(R, moi) { return aDroit(moi.role, R, 'membres') && niveau(R, resource.data.role) < niveau(R, moi.role); }
+        // on quitte le club soi-même, ou un responsable retire un compte sous son niveau
+        allow delete: if signedIn() && request.auth.uid == uid;
+        allow delete: if membre(c) && request.auth.uid != uid && retrait(rolesMap(c), m(c));
+      }
+
+      // ----- Réglages : rôles du club (président seulement), autres réglages (droit Réglages) -----
+      match /reglages/{id} {
+        allow read: if true;
+        allow write: if id != 'roles' && moduleOn(c, 'base') && can(c, 'reglages') && audit();
+      }
+      match /reglages/roles {
+        allow write: if moduleOn(c, 'base') && president(c)
+          && d().keys().hasOnly(['roles', 'maj', 'par']) && d().roles is map && d().roles.size() <= 30
+          && !('president' in d().roles) && !('membre' in d().roles) && audit();
+      }
+
+      // ----- Pointage : code du jour (ou QR) donné par le staff, saisi par le joueur à son arrivée -----
+      // Le code est dans un document à part, que seuls les membres avec le droit Sportif lisent.
+      match /codes/{evenementId} {
+        allow read, delete: if moduleOn(c, 'sportif') && can(c, 'sportif') && dansPerimetre(c, resource.data);
+        allow create, update: if moduleOn(c, 'sportif') && can(c, 'sportif') && dansPerimetre(c, d())
+          && d().keys().hasOnly(['code', 'expire', 'sectionId', 'categorieId', 'maj', 'par'])
+          && str(d().code, 12) && d().code.size() >= 4 && d().expire is timestamp && audit();
+      }
+      match /pointages/{id} {
+        function codeDoc() { return get(/databases/$(database)/documents/clubs/$(c)/codes/$(d().evenementId)).data; }
+        function pointageOk() {
+          return d().keys().hasOnly(['evenementId', 'personneId', 'code', 'at', 'uid', 'sectionId', 'categorieId', 'manuel'])
+            && id == d().evenementId + '_' + d().personneId && d().at == request.time && d().uid == request.auth.uid;
+        }
+        allow read: if moduleOn(c, 'sportif') && ((can(c, 'sportif') && dansPerimetre(c, resource.data)) || concerne(c, resource.data));
+        // le joueur pointe pour lui-même avec le bon code, avant l'expiration ; section et catégorie suivent le code
+        allow create: if moduleOn(c, 'sportif') && membre(c) && pointageOk()
+          && d().personneId == m(c).get('personneId', '') && d().personneId != ''
+          && exists(/databases/$(database)/documents/clubs/$(c)/codes/$(d().evenementId))
+          && d().code == codeDoc().code && request.time < codeDoc().expire
+          && d().get('sectionId', '') == codeDoc().get('sectionId', '') && d().get('categorieId', '') == codeDoc().get('categorieId', '')
+          && d().get('manuel', false) == false;
+        // le staff pointe à la main un joueur sans téléphone
+        allow create: if moduleOn(c, 'sportif') && can(c, 'sportif') && pointageOk() && dansPerimetre(c, d()) && d().manuel == true;
+        allow delete: if moduleOn(c, 'sportif') && can(c, 'sportif') && dansPerimetre(c, resource.data);
+        allow update: if false;
+      }
+
+      // ----- Encaissements : reçus numérotés, jamais modifiés ni effacés (une erreur se corrige par un reçu d'annulation) -----
+      match /meta/compteurs {
+        allow read: if moduleOn(c, 'finances') && can(c, 'finances');
+        allow create: if moduleOn(c, 'finances') && can(c, 'finances') && d().keys().hasOnly(['recu']) && d().recu == 1;
+        allow update: if moduleOn(c, 'finances') && can(c, 'finances') && d().keys().hasOnly(['recu']) && d().recu == resource.data.recu + 1;
+      }
+      match /paiements/{id} {
+        allow read: if moduleOn(c, 'finances') && ((can(c, 'finances') && dansPerimetre(c, resource.data)) || concerne(c, resource.data));
+        allow create: if moduleOn(c, 'finances') && can(c, 'finances') && dansPerimetre(c, d())
+          && d().keys().hasOnly(['numero', 'personneId', 'echeanceId', 'montant', 'mode', 'motif', 'payeur', 'annule', 'sectionId', 'categorieId', 'date', 'par'])
+          && d().numero is int && id == string(d().numero)
+          && getAfter(/databases/$(database)/documents/clubs/$(c)/meta/compteurs).data.recu == d().numero
+          && d().montant is int && d().mode in ['espèces', 'wave', 'orange money', 'virement', 'chèque', 'annulation']
+          && str(d().get('motif', ''), 120) && str(d().get('payeur', ''), 80)
+          && d().date == request.time && d().par == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      // ----- Toutes les autres collections du club : une seule règle, pilotée par la politique -----
+      // (paiements, pointages, codes, membres, reglages et meta n'y sont jamais : ils ont leurs règles ci-dessus)
+      match /{col}/{id} {
+        // P = l'entrée de la politique pour cette collection (calculée une seule fois par règle)
+        function connue(P) {
+          return P != null && !(col in ['membres', 'reglages', 'codes', 'pointages', 'meta', 'paiements']) && moduleOn(c, P.m);
+        }
+        function champsOk(P) {
+          return d().keys().hasOnly(P.champs.concat(['sectionId', 'categorieId', 'maj', 'par']))
+            && str(d().get('sectionId', ''), 60) && str(d().get('categorieId', ''), 60);
+        }
+        function lecture(P) {
+          return connue(P) && (
+            P.l == 'public'
+            || (P.l == 'public?' && resource.data.get('public', false) == true)
+            || ((P.l == 'membre' || P.l == 'public?') && membre(c))
+            || (!(P.l in ['public', 'public?', 'membre']) && can(c, P.l) && dansPerimetre(c, resource.data))
+            || (can(c, P.e) && dansPerimetre(c, resource.data))
+            || (P.perso && concerne(c, resource.data))
+            || (P.soi && soiMeme(c, id)));
+        }
+        function ecriture(P, avant) {
+          return connue(P) && can(c, P.e) && dansPerimetre(c, d()) && (!avant || dansPerimetre(c, resource.data)) && champsOk(P) && audit();
+        }
+        // le joueur concerné (ou son parent) ne change que ses champs de réponse
+        function reponse(P) {
+          return connue(P) && P.rep.size() > 0 && (concerne(c, resource.data) || (P.soi && soiMeme(c, id)))
+            && changed().hasOnly(P.rep.concat(['maj', 'par'])) && audit();
+        }
+        function effacement(P) { return connue(P) && !P.garder && can(c, P.e) && dansPerimetre(c, resource.data); }
+        allow read: if lecture(politique(col));
+        allow create: if ecriture(politique(col), false);
+        allow update: if ecriture(politique(col), true) || reponse(politique(col));
+        allow delete: if effacement(politique(col));
+      }
+    }
+  }
+}
