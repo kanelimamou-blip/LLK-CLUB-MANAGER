@@ -1,0 +1,29 @@
+{
+  "_aide": "Modèles de club proposés à la création (Admin > Clubs) et au démarrage (président). Ajouter un modèle ici suffit : pas de règle à recoller.",
+  "quartier": {
+    "nom": "ASC de quartier (navétanes)",
+    "resume": "Seniors et Juniors, caisse ouverte transparente, inscription simple par nom et téléphone.",
+    "modules": ["effectif", "sportif", "finances", "communication"],
+    "saison": "Navétanes {an}",
+    "categories": [["Seniors", 1], ["Juniors", 1]],
+    "caisse": { "actif": true, "objectif": 100000, "texte": "Préparons ensemble la saison : maillots, inscription, primes. Versez ce que vous pouvez, quand vous voulez. Tout est tracé et visible par tous." },
+    "acces": { "simple": true },
+    "annonce": { "titre": "Bienvenue dans l'appli du club", "texte": "Cotisez quand vous voulez par Wave ou Orange Money : chaque versement est vérifié et visible par tous." }
+  },
+  "formation": {
+    "nom": "Club pro + centre de formation",
+    "resume": "Équipe première et réserve, filière de formation U7 → U19 avec parcours, objectifs par âge et évaluations.",
+    "modules": ["effectif", "sportif", "medical", "finances", "communication", "installations"],
+    "saison": "{an}-{an1}",
+    "categories": [["Seniors", 2], ["U19", 1], ["U17", 1], ["U15", 1], ["U13", 2], ["U11", 2], ["U9", 2], ["U7", 1]],
+    "formation": true,
+    "annonce": { "titre": "Le centre de formation est dans l'appli", "texte": "Parcours par âge, évaluations, présences et forme des joueurs : tout le staff suit la progression de chaque jeune." }
+  },
+  "amateur": {
+    "nom": "Club amateur (Seniors + jeunes)",
+    "resume": "Seniors, U17, U15, U13, avec cotisations et convocations.",
+    "modules": ["effectif", "sportif", "finances", "communication"],
+    "saison": "{an}-{an1}",
+    "categories": [["Seniors", 1], ["U17", 1], ["U15", 1], ["U13", 1]]
+  }
+}

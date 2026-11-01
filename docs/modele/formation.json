@@ -1,0 +1,21 @@
+{
+  "_aide": "Parcours de formation (football) : phases, âges, objectifs et critères d'évaluation. Modifiable sans toucher aux règles.",
+  "phases": [
+    { "id": "ecole", "nom": "École de foot", "ages": ["U7", "U9"], "couleur": "#4CAF50", "devise": "Le plaisir d'abord",
+      "objectifs": ["Motricité, coordination, équilibre", "Relation avec le ballon : conduite, dribble, frappe", "Jeu réduit (3c3, 5c5), beaucoup de touches", "Respect, ponctualité, esprit d'équipe"],
+      "criteres": ["Coordination", "Conduite de balle", "Envie et plaisir", "Respect des consignes"],
+      "seances": "2 séances de 60 min par semaine + plateau le week-end" },
+    { "id": "preformation", "nom": "Pré-formation", "ages": ["U11", "U13"], "couleur": "#2196F3", "devise": "L'âge d'or des apprentissages",
+      "objectifs": ["Technique des deux pieds : passe, contrôle orienté, frappe", "Jeu à 8 : occupation de l'espace, démarquage", "Vitesse, appuis, souplesse (sans charge)", "Hygiène de vie : sommeil, alimentation, école"],
+      "criteres": ["Technique (2 pieds)", "Compréhension du jeu", "Vitesse et appuis", "Comportement", "Résultats scolaires"],
+      "seances": "3 séances de 75 min + match à 8" },
+    { "id": "formation", "nom": "Formation", "ages": ["U15", "U17"], "couleur": "#FF9800", "devise": "Devenir joueur de foot à 11",
+      "objectifs": ["Principes de jeu du club (bloc, pressing, construction)", "Spécialisation par poste", "Développement athlétique progressif (force, endurance)", "Mental : gestion de l'erreur, leadership", "Suivi médical et croissance"],
+      "criteres": ["Technique sous pression", "Intelligence tactique", "Qualités athlétiques", "Mental", "Poste : profil spécifique", "Assiduité"],
+      "seances": "4 à 5 séances + match à 11" },
+    { "id": "postformation", "nom": "Post-formation", "ages": ["U19", "Réserve"], "couleur": "#E91E63", "devise": "Prêt pour l'équipe première",
+      "objectifs": ["Intensité et exigence du haut niveau", "Polyvalence et rôle dans le système de l'équipe première", "Préparation physique individualisée (charge, RPE)", "Accompagnement : contrat, études, projet de vie"],
+      "criteres": ["Niveau de performance", "Adaptation au jeu de l'équipe première", "Condition physique", "Professionnalisme", "Potentiel"],
+      "seances": "Rythme pro : 6 à 8 séances, entraînements avec l'équipe première" }
+  ]
+}

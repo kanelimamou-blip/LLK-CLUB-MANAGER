@@ -88,6 +88,7 @@
     reglages: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
     admin: '<path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="M12 8v5M12 16h.01"/>',
     clubs: '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-5h6v5"/>',
+    formation: '<path d="M2 9.5 12 5l10 4.5-10 4.5z"/><path d="M6 11.3V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.7"/><path d="M22 9.5V15"/>',
     forme: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
     partager: '<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.2 10.8 7.6-4.1M8.2 13.2l7.6 4.1"/>',
     cotiser: '<path d="M12 3v18M16.5 7.5c-.7-1.4-2.4-2.3-4.5-2.3-2.6 0-4.3 1.3-4.3 3.2 0 4.4 9 2.4 9 6.9 0 2-1.9 3.4-4.7 3.4-2.3 0-4.1-1-4.8-2.6"/>',
@@ -107,6 +108,7 @@
       if (!moduleOn(m.id) || !m.collections.some((x) => lisible(pol(x.id)))) continue;
       items.push({ h: `${c}/m/${m.id}`, t: m.nom, k: m.id, i: m.icone });
     }
+    if (moduleOn("sportif") && (D.can("effectif") || D.can("sportif")) && (S.club.offre === "formation" || (S.cache.categories || []).filter((x) => /^U\d+/.test(x.code || x.nom || "")).length >= 3)) items.push({ h: `${c}/formation`, t: "Formation", k: "formation" });
     if (moduleOn("sportif") && D.can("effectif")) items.push({ h: `${c}/forme`, t: "Forme", k: "forme" });
     if (moduleOn("sportif") && (D.can("sportif") || D.mesPersonnes().length)) items.push({ h: `${c}/pointage`, t: "Pointage", k: "pointage" });
     if (moduleOn("finances") && D.can("finances")) items.push({ h: `${c}/bilan`, t: "Bilan", k: "bilan" });
@@ -114,8 +116,10 @@
     if (D.can("membres")) items.push({ h: `${c}/membres`, t: "Membres", k: "membres" });
     if (D.can("reglages") || D.president()) items.push({ h: `${c}/reglages`, t: "Réglages", k: "reglages" });
     if (B.estAdmin()) items.push({ h: "#/admin", t: "Admin", k: "admin" });
+    // club pro : la formation juste après l'accueil
+    if (S.club.offre === "formation") { const i = items.findIndex((x) => x.k === "formation"); if (i > 1) items.splice(1, 0, items.splice(i, 1)[0]); }
     // caisse ouverte : juste après l'accueil, c'est l'action la plus fréquente quand elle est activée
-    if (moduleOn("finances") && (S.caisseActive || D.can("finances"))) items.splice(1, 0, { h: `${c}/cotiser`, t: S.caisseActive ? "Cotiser" : "Caisse ouverte", k: "cotiser" });
+    if (moduleOn("finances") && (S.caisseActive || (D.can("finances") && S.club.offre !== "formation"))) items.splice(1, 0, { h: `${c}/cotiser`, t: S.caisseActive ? "Cotiser" : "Caisse ouverte", k: "cotiser" });
     return items;
   }
   // Bouton « + » présent sur tous les écrans du club : on ajoute sans revenir à l'accueil.
@@ -237,6 +241,7 @@
       if (v === "bilan") return vueBilan();
       if (v === "cotiser") return vueCotiser();
       if (v === "rejoindre") return vueRejoindre();
+      if (v === "formation") return vueFormation();
       if (v === "membres") return vueMembres();
       if (v === "reglages") return vueReglages();
       coquille(`<div class="carte">Page inconnue.</div>`);
@@ -306,7 +311,7 @@
       <div class="puces">${(S.cache.sections || []).map((s) => `<span class="puce">${esc((S.sports[s.sportId] || {}).icone || "")} ${esc(s.nom)}</span>`).join("")}</div></div></section>`;
 
     if (moduleOn("finances")) html += await caisseResumeHtml();
-    if (D.membre() && peutStructurer() && !(S.cache.sections || []).length) { await charger("equipes"); html += structureHtml(true); }
+    if (D.membre() && peutStructurer() && !(S.cache.sections || []).length) { await charger("equipes"); html += (await modelesHtml()) + structureHtml(true); }
     if (!D.membre()) {
       if (S.membre && !S.membre.actif) html += `<div class="carte info">Votre demande d'adhésion est en attente de validation par le club.</div>`;
       else if (B.mode === "firebase" && B.uid) html += `<div class="carte"><h3>Rejoindre le club</h3><p class="muted">Joueur, parent ou staff : envoyez votre demande, le club vous donne ensuite votre accès.</p>
@@ -364,7 +369,7 @@
     if (joues.length) html += `<div class="carte"><h3>Derniers résultats</h3>${joues.slice(0, 5).map((e) => `<div class="ligne"><span>${esc(nomDoc(e))}</span><b>${e.scoreNous ?? "-"} - ${e.scoreEux ?? "-"}</b></div>`).join("")}</div>`;
     if (actus.length) html += `<div class="carte"><h3>Actualités</h3>${actus.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5).map((a) => `<div class="ligne"><div><b>${esc(a.titre)}</b><br><small>${dateFr(a.date)} · ${esc(a.texte || "")}</small></div></div>`).join("")}</div>`;
     coquille(html);
-    brancherStructure(true);
+    brancherStructure(true); brancherModeles();
 
     app.querySelectorAll("[data-conv]").forEach((b) => (b.onclick = () => action(async () => {
       await B.ecrire(S.clubId, "convocations", b.dataset.conv, { reponse: b.dataset.rep }); vider("convocations"); vueAccueil();
@@ -756,6 +761,70 @@
     }, "Demande envoyée au club");
   }
 
+  /* ---------- Modèles de club (ASC de quartier, club pro + formation, amateur) : la structure en un appui ----------
+     Fichier docs/modele/modeles-club.json ; l'admin choisit le modèle à la création (fiche club « offre »), le président l'installe. */
+  const fichierModele = (f) => (S["f-" + f] ||= fetch("modele/" + f, { cache: "no-cache" }).then((r) => r.json()).catch(() => ({})));
+  async function modelesHtml() {
+    const ms = Object.entries(await fichierModele("modeles-club.json")).filter(([k]) => !k.startsWith("_"));
+    if (!ms.length) return "";
+    const choisi = S.club.offre && ms.some(([k]) => k === S.club.offre) ? S.club.offre : "";
+    return `<div class="carte modeles-club"><h3>Démarrer avec un modèle</h3><p class="muted">Un appui crée la saison, les catégories et les équipes${choisi ? "" : " (vous pourrez tout modifier ensuite)"}.</p>
+      ${ms.filter(([k]) => !choisi || k === choisi).map(([k, m]) => `<div class="modele-l"><div><b>${esc(m.nom)}</b><small>${esc(m.resume || "")}</small><span class="puces">${m.categories.map(([c, n]) => `<span class="puce">${esc(c)}${n > 1 ? " ×" + n : ""}</span>`).join("")}</span></div>
+        <button type="button" class="btn ${k === choisi ? "accent" : "clair"}" data-modele-club="${esc(k)}">Installer</button></div>`).join("")}
+      ${choisi ? `<button type="button" class="lien" data-autres-modeles>Voir les autres modèles</button>` : ""}</div>`;
+  }
+  async function installerModele(cle) {
+    const m = (await fichierModele("modeles-club.json"))[cle]; if (!m) throw new Error("modèle introuvable");
+    const now = new Date(), y = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+    const anNav = now.getMonth() >= 9 ? now.getFullYear() + 1 : now.getFullYear();
+    let saison = (S.cache.saisons || []).find((x) => x.courante);
+    if (!saison) saison = { id: await B.ecrire(S.clubId, "saisons", null, { nom: (m.saison || "{an}-{an1}").replace("{an}", String(m.saison && m.saison.startsWith("Nav") ? anNav : y)).replace("{an1}", String(y + 1)), debut: `${y}-08-01`, fin: `${y + 1}-07-31`, courante: true }) };
+    let sec = (S.cache.sections || []).find((x) => x.sportId === "football");
+    if (!sec) sec = { id: await B.ecrire(S.clubId, "sections", null, { nom: "Football", sportId: "football", ordre: 1, actif: true }) };
+    let ordre = (S.cache.categories || []).length;
+    for (const [code, n] of m.categories) {
+      if ((S.cache.categories || []).some((c) => (c.code || c.nom) === code)) continue;
+      const age = /^U(\d+)$/i.exec(code), min = age ? y + 1 - +age[1] : null;
+      const cat = await B.ecrire(S.clubId, "categories", null, { nom: code, code, sexe: "M", ordre: ++ordre, actif: true, sectionId: sec.id, ...(min ? { anneeMin: min, anneeMax: min + 1 } : {}) });
+      for (let i = 0; i < n; i++) await B.ecrire(S.clubId, "equipes", null, { nom: code === "Seniors" && cle === "formation" ? ["Équipe première", "Réserve"][i] || `Seniors ${"ABCD"[i]}` : `${code} ${"ABCD"[i]}`, saison: saison.id, sectionId: sec.id, categorieId: cat, ordre: i + 1 });
+    }
+    if (m.caisse && moduleOn("finances") && pol("caisses") && !S.caisseActive) { await B.ecrire(S.clubId, "caisses", "principale", m.caisse); S.caisseActive = !!m.caisse.actif; }
+    if (m.acces && D.can("reglages")) { await B.ecrireReglage(S.clubId, "acces", m.acces); S.acces = m.acces; }
+    if (m.annonce && moduleOn("communication") && pol("annonces")) await B.ecrire(S.clubId, "annonces", null, { ...m.annonce, date: jour(), cible: "tous" }).catch(() => {});
+    ["saisons", "sections", "categories", "equipes", "annonces"].forEach(vider);
+  }
+  function brancherModeles() {
+    app.querySelectorAll("[data-modele-club]").forEach((b) => (b.onclick = () => action(async () => { b.disabled = true; await installerModele(b.dataset.modeleClub); route(); }, "Modèle installé : le club est prêt")));
+    app.querySelectorAll("[data-autres-modeles]").forEach((b) => (b.onclick = async () => { const o = S.club.offre; S.club.offre = ""; const z = b.closest(".modeles-club"); z.outerHTML = await modelesHtml(); S.club.offre = o; brancherModeles(); }));
+  }
+
+  /* ---------- Centre de formation : parcours par âge (docs/modele/formation.json), effectifs, évaluations ---------- */
+  async function vueFormation() {
+    const F = await fichierModele("formation.json"), phases = F.phases || [];
+    const [ps, evals] = await Promise.all([charger("personnes"), lisible(pol("evaluations")) ? charger("evaluations") : []]);
+    const cats = S.cache.categories || [];
+    const limite = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
+    const moyenne = (e) => { const v = Object.values(e.criteres || {}).filter((x) => typeof x === "number"); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    let h = `<div class="rj-tete"><span class="sur">Centre de formation</span><h2>Le parcours <em>du joueur</em></h2><p>De l'école de foot à l'équipe première : objectifs par âge, effectifs et évaluations.</p></div><div class="parcours">`;
+    for (const ph of phases) {
+      const cs = cats.filter((c) => ph.ages.includes(c.code || c.nom) || (ph.ages.includes("Réserve") && /réserve/i.test(c.nom || "")));
+      const js = ps.filter((p) => p.type === "joueur" && p.statut !== "parti" && cs.some((c) => c.id === p.categorieId));
+      const ev = evals.filter((e) => e.date >= limite && js.some((p) => p.id === e.personneId));
+      const notes = ev.map(moyenne).filter((x) => x != null), moy = notes.length ? (notes.reduce((a, b) => a + b, 0) / notes.length).toFixed(1) : "–";
+      const evalues = new Set(ev.map((e) => e.personneId)).size;
+      const pre = (c) => esc(JSON.stringify({ sectionId: c.sectionId, categorieId: c.id, date: jour(), criteres: Object.fromEntries(ph.criteres.map((k) => [k, ""])) }));
+      h += `<section class="phase" style="--ph:${esc(ph.couleur)}"><div class="phase-tete"><span class="ages">${esc(ph.ages.join(" · "))}</span><h3>${esc(ph.nom)}</h3><em>${esc(ph.devise)}</em></div>
+        <div class="tuiles mini-tuiles"><div class="tuile"><b>${js.length}</b><span>joueurs</span></div><div class="tuile"><b>${evalues}/${js.length}</b><span>évalués (4 mois)</span></div><div class="tuile"><b>${moy}</b><span>note moyenne /5</span></div></div>
+        <h4>Objectifs</h4><ul class="obj">${ph.objectifs.map((o) => `<li>${esc(o)}</li>`).join("")}</ul>
+        <p class="muted">${esc(ph.seances)}</p>
+        <h4>Critères d'évaluation</h4><div class="puces">${ph.criteres.map((k) => `<span class="puce">${esc(k)}</span>`).join("")}</div>
+        <div class="actions">${cs.map((c) => `${D.can("sportif") ? `<a class="btn petit" href="#/c/${S.clubId}/f/evaluations/nouveau" data-pre='${pre(c)}'>Évaluer en ${esc(c.nom)}</a>` : ""}<a class="btn petit clair" href="#/c/${S.clubId}/m/effectif/personnes" data-filtre="${esc(c.id)}">Effectif ${esc(c.nom)}</a>`).join("") || `<span class="muted">Pas encore de catégorie ${esc(ph.ages.join(" / "))} : ajoutez-la dans Réglages.</span>`}</div></section>`;
+    }
+    h += `</div>`;
+    coquille(h, "Formation");
+    app.querySelectorAll("[data-filtre]").forEach((a) => (a.onclick = () => { const c = cats.find((x) => x.id === a.dataset.filtre); sessionStorage.setItem("filtre", JSON.stringify({ sec: c.sectionId, cat: c.id })); }));
+  }
+
   // bilan financier pour le président et le trésorier
   async function vueBilan() {
     const [recus, deps, echs, ps, sponsors, collectes, formules] = await Promise.all([B.paiements(S.clubId).catch(() => []), charger("depenses"), charger("echeances"), charger("personnes"), charger("sponsors"), charger("collectes"), charger("formules")]);
@@ -836,6 +905,7 @@
       case "liste": return `<textarea ${n} ${dis} rows="3" placeholder="Un élément par ligne">${esc((v || []).join("\n"))}</textarea>`;
       case "map": {
         const cles = sp && sp[ch.selonSport] ? sp[ch.selonSport] : Object.keys(v || {});
+        if (!(sp && sp[ch.selonSport]) && v && Object.values(v).some((x) => x === "")) return `<div class="grille2" data-map="${ch.id}">${Object.keys(v).map((k) => `<label class="mini-champ">${esc(k)} <small>(1 à 5)</small><input type="number" min="1" max="5" inputmode="numeric" data-k="${esc(k)}" value="${esc(v[k])}" ${dis}></label>`).join("")}</div>`;
         if (sp && sp[ch.selonSport]) return `<div class="grille2" data-map="${ch.id}">${cles.map((k) => `<label class="mini-champ">${esc(k)}<input type="number" data-k="${esc(k)}" value="${esc((v || {})[k] ?? "")}" ${dis}></label>`).join("")}</div>`;
         return `<textarea ${n} data-maptxt="1" ${dis} rows="3" placeholder="clé : valeur (une par ligne)">${esc(Object.entries(v || {}).map(([k, x]) => `${k} : ${x}`).join("\n"))}</textarea>`; }
       default: {
@@ -1117,7 +1187,7 @@
     if (D.president()) html += `<form class="carte" id="rg-roles"><h3>Rôles du club</h3><p class="muted">Créez vos propres rôles (niveau 1 à 99). Un membre ne donne que des rôles sous son niveau.</p>
       ${Object.entries(S.R).sort((a, b) => b[1].niveau - a[1].niveau).map(([id, r]) => roleHtml(id, r, droits)).join("")}
       <div id="rg-nouveaux"></div><div class="actions"><button type="button" class="btn clair" id="rg-add">+ Nouveau rôle</button><button class="btn">Enregistrer les rôles</button></div></form>`;
-    if (peutStructurer()) { await charger("equipes"); html = structureHtml(!(S.cache.sections || []).length) + html; }
+    if (peutStructurer()) { await charger("equipes"); html = (await modelesHtml()) + structureHtml(!(S.cache.sections || []).length) + html; }
     // kit prêt (logo, couverture, couleurs) préparé pour ce club : un appui, rien à télécharger
     const dossier = "clubs/" + S.clubId + "/";
     const kit = D.can("reglages") ? await fetch(dossier + "kit.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
@@ -1133,7 +1203,7 @@
       if (couverture) await B.ecrireReglage(S.clubId, "apparence", { couverture });
       const id = S.clubId; S.clubId = null; location.hash = "#/c/" + id; route();
     }, "Kit appliqué : l'appli est aux couleurs du club");
-    brancherStructure(!(S.cache.sections || []).length);
+    brancherStructure(!(S.cache.sections || []).length); brancherModeles();
     const fc = $("#rg-club");
     if (fc) {
       const apercu = () => appliquerCouleurs(fc.principale.value, fc.accent.value);
@@ -1183,6 +1253,7 @@
           <label>Nom du club<input name="nom" placeholder="ex. Lerrgui FC" required></label>
           <label>Ville<input name="ville" placeholder="ex. Dakar"></label>
           <label>Téléphone du président<input name="ptel" type="tel" inputmode="tel" placeholder="Laisser vide si c'est vous"></label>
+          <label>Modèle de club<select name="modele"><option value="">(choisir au démarrage)</option>${Object.entries(await fichierModele("modeles-club.json")).filter(([k]) => !k.startsWith("_")).map(([k, m]) => `<option value="${esc(k)}">${esc(m.nom)}</option>`).join("")}</select></label>
           <details><summary>Modules inclus : tous</summary><div class="cases">${optionnels.map((m) => `<label class="case"><input type="checkbox" value="${m.id}" checked> ${esc(m.nom)}</label>`).join("")}</div></details>
           <button class="btn large-btn">Créer le club</button></form>
         <h3 class="titre-sec">Clubs <span class="muted">${clubs.length}</span></h3>
@@ -1213,7 +1284,8 @@
         const nom = f.nom.value.trim();
         const base = nom.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "club";
         let id = base, n = 2; while (clubs.some((c) => c.id === id)) id = `${base}-${n++}`;
-        await B.creerClub(id, { nom, ville: f.ville.value.trim(), pays: "Sénégal", devise: "F CFA", active: true, modules: [...f.querySelectorAll(".cases input:checked")].map((i) => i.value), offre: "" });
+        const mdl = f.modele.value ? (await fichierModele("modeles-club.json"))[f.modele.value] : null;
+        await B.creerClub(id, { nom, ville: f.ville.value.trim(), pays: "Sénégal", devise: "F CFA", active: true, modules: mdl ? mdl.modules : [...f.querySelectorAll(".cases input:checked")].map((i) => i.value), offre: f.modele.value || "" });
         let qui = ""; try { qui = await nommer(id, f.ptel.value); } catch (er) { toast(er.message); }
         location.hash = qui === "vous" ? "#/c/" + id : "#/admin/clubs"; if (qui !== "vous") vueAdmin("clubs");
       }, "Club créé"); };

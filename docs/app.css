@@ -456,3 +456,15 @@ img.zoomable.zoom { position: fixed; inset: 0; z-index: 99; width: 100vw; height
 .kit-apercu img { width: 70px; height: 70px; object-fit: contain; }
 .kit-apercu b { font: 800 28px var(--display); text-transform: uppercase; }
 .kit-coul { display: flex; gap: 6px; } .kit-coul i { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; }
+
+/* ---------- Modèles de club, centre de formation ---------- */
+.modele-l { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.modele-l > div { display: grid; gap: 4px; } .modele-l small { color: var(--muted); }
+.parcours { display: grid; gap: 14px; }
+.phase { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 16px; border-top: 6px solid var(--ph); }
+.phase-tete .ages { font: 700 12px var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--ph); }
+.phase-tete h3 { font: 800 28px var(--display); text-transform: uppercase; margin: 2px 0; }
+.phase-tete em { color: var(--muted); }
+.phase h4 { margin: 12px 0 6px; }
+.obj { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.phase .puces .puce { background: var(--surface-2); color: var(--ink); }
