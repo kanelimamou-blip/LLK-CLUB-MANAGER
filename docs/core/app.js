@@ -81,7 +81,7 @@
       </header>
       <div class="cadre">
         <nav class="nav">${nav.map((n) => `<a href="${n.h}" class="${h === n.h || (n.h !== "#/c/" + S.clubId && h.startsWith(n.h + "/")) ? "actif" : ""}"><span>${n.i}</span>${esc(n.t)}</a>`).join("")}</nav>
-        <main class="main">${contenu}</main>
+        <main class="main">${contenu}<p class="pied">${esc(P.nom)}</p></main>
       </div>`;
     const deco = $("[data-a=deco]"); if (deco) deco.onclick = () => B.deconnecter();
     const sel = $("#profil-demo"); if (sel) sel.onchange = () => { B.profil(sel.value); S.clubId = null; route(); };
@@ -150,7 +150,7 @@
     const joues = evts.filter((e) => e.type === "match" && e.statut === "joué").sort((a, b) => (a.debut < b.debut ? 1 : -1));
     let html = `<section class="hero"><h1>${esc(c.nom)}</h1><p>${esc(c.slogan || "")}</p>
       <div class="puces">${(S.cache.sections || []).map((s) => `<span class="puce">${esc((S.sports[s.sportId] || {}).icone || "")} ${esc(s.nom)}</span>`).join("")}</div>
-      ${installee() ? "" : `<button class="btn installer" id="installer" ${invite || estIOS ? "" : "hidden"}>📲 Installer l'appli ${esc(c.nomCourt || c.nom)}</button>`}</section>`;
+      ${installee() ? "" : `<button class="btn installer" id="installer" ${invite || estIOS ? "" : "hidden"}>📲 Installer ${esc(P.nom)}</button>`}</section>`;
 
     if (!D.membre()) {
       if (S.membre && !S.membre.actif) html += `<div class="carte info">Votre demande d'adhésion est en attente de validation par le club.</div>`;
