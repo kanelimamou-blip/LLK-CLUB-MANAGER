@@ -213,3 +213,20 @@ details[open] summary::after { transform: rotate(90deg); }
 [hidden] { display: none !important; }
 .btn.installer { background: #fff; color: var(--club); }
 .tuile b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(19px, 5.6vw, 24px); }
+/* Bouton + flottant (ajouter depuis n'importe quel écran) */
+.fab { position: fixed; right: 18px; bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 7; width: 56px; height: 56px; border-radius: 18px; border: 0;
+  background: var(--accent); color: var(--on-accent); display: grid; place-items: center; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.fab svg { width: 26px; height: 26px; }
+.fab:active { transform: scale(.94); }
+@media (min-width: 900px) { .fab { bottom: 28px; right: 28px; } }
+.liste-ajout { grid-template-columns: repeat(3, 1fr); max-height: 75vh; overflow-y: auto; }
+.liste-ajout h3 { grid-column: 1 / -1; margin: 0 4px 6px; }
+.liste-ajout a span { text-align: center; font-size: 12.5px; }
+@media (min-width: 900px) { .feuille-corps { left: auto; right: 24px; bottom: 96px; width: 420px; border-radius: 24px; } }
+/* Fiches liées */
+.lien-bloc { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.lien-bloc:last-child { border-bottom: 0; }
+.lien-tete { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.lien-tete b { flex: 1; }
+.compte-puce { font-size: 12px; font-weight: 700; min-width: 24px; text-align: center; padding: 2px 8px; border-radius: 99px; background: var(--club-soft); color: var(--club); }
+.lien-bloc .ligne { padding: 8px 0; border-bottom: 0; }

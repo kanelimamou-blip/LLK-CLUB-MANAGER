@@ -85,9 +85,26 @@
     if (B.estAdmin()) items.push({ h: "#/admin", t: "Admin", k: "admin" });
     return items;
   }
+  // Bouton « + » présent sur tous les écrans du club : on ajoute sans revenir à l'accueil.
+  // Les fiches les plus utiles d'abord ; le filtre section/catégorie en cours est repris.
+  function menuAjout() {
+    if (!S.club || !D.membre()) return [];
+    const f = JSON.parse(sessionStorage.getItem("filtre") || "{}");
+    const prio = ["evenements", "personnes", "convocations", "stats", "evaluations", "blessures", "annonces", "actualites", "echeances", "depenses"];
+    const out = [];
+    for (const m of modules()) for (const c of m.collections) {
+      const P2 = pol(c.id); if (!P2 || !moduleOn(P2.m) || !D.can(P2.e)) continue;
+      const pre = c.categorie && (f.sec || f.cat) ? { sectionId: f.sec || "", categorieId: f.cat || "" } : null;
+      out.push({ h: `#/c/${S.clubId}/f/${c.id}/nouveau`, t: c.nom, k: m.id, i: m.icone, pre, o: prio.includes(c.id) ? prio.indexOf(c.id) : 50 });
+    }
+    if (moduleOn("sportif") && D.can("sportif")) out.push({ h: `#/c/${S.clubId}/pointage`, t: "Pointage du jour", k: "pointage", o: 1.5 });
+    if (moduleOn("finances") && D.can("finances")) out.push({ h: `#/c/${S.clubId}/caisse`, t: "Encaisser", k: "caisse", o: 2.5 });
+    return out.sort((a, b) => a.o - b.o).slice(0, 12);
+  }
   function coquille(contenu, titre) {
     const club = S.club;
     const h = location.hash || "#/";
+    const ajouts = menuAjout();
     const actif = (n) => h === n.h || (n.h !== "#/c/" + S.clubId && h.startsWith(n.h + "/"));
     const nav = (B.estAdmin() && !club ? [{ h: "#/admin", t: "Admin", k: "admin" }, { h: "#/clubs", t: "Clubs", k: "clubs" }] : menu());
     app.innerHTML = `
@@ -106,7 +123,11 @@
         ${nav.length <= 5 ? "" : `<div class="feuille" id="feuille" hidden><div class="feuille-fond" data-ferme></div><div class="feuille-corps"><div class="poignee"></div>
           ${nav.slice(4).map((n) => `<a href="${n.h}" class="${actif(n) ? "actif" : ""}">${ico(n.k, n.i)}<span>${esc(n.t)}</span></a>`).join("")}</div></div>`}
         <main class="main">${contenu}<p class="pied">${esc(P.nom)}</p></main>
+        ${ajouts.length ? `<button type="button" class="fab" id="fab" aria-label="Ajouter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+        <div class="feuille" id="feuille-ajout" hidden><div class="feuille-fond" data-ferme></div><div class="feuille-corps liste-ajout"><div class="poignee"></div><h3>Ajouter</h3>
+          ${ajouts.map((a) => `<a href="${a.h}" ${a.pre ? `data-pre='${esc(JSON.stringify(a.pre))}'` : ""}>${ico(a.k, a.i)}<span>${esc(a.t)}</span></a>`).join("")}</div></div>` : ""}
       </div>`;
+    const fa = $("#feuille-ajout"); if (fa) { $("#fab").onclick = () => { fa.hidden = false; }; fa.onclick = (e) => { if (e.target.closest("a") || e.target.dataset.ferme !== undefined) fa.hidden = true; }; }
     const fe = $("#feuille"); if (fe) { $("#nav-plus").onclick = () => { fe.hidden = false; }; fe.onclick = (e) => { if (e.target.closest("a") || e.target.dataset.ferme !== undefined) fe.hidden = true; }; }
     const deco = $("[data-a=deco]"); if (deco) deco.onclick = () => B.deconnecter();
     const sel = $("#profil-demo"); if (sel) sel.onchange = () => { B.profil(sel.value); S.clubId = null; route(); };
@@ -167,6 +188,8 @@
     } catch (e) { console.error(e); coquille(`<div class="carte erreur">Erreur : ${esc(e.message)}</div>`); }
   }
   window.addEventListener("hashchange", route);
+  // « + Ajouter » depuis une fiche : la nouvelle fiche arrive pré-remplie (joueur, séance, catégorie…)
+  document.addEventListener("click", (e) => { const a = e.target.closest("[data-pre]"); if (a) sessionStorage.setItem("prefill", a.dataset.pre); });
   document.addEventListener("click", (e) => { if (e.target.id === "copier-uid") navigator.clipboard.writeText(B.uid).then(() => toast("Identifiant copié")); });
   const toast = (t) => { document.querySelectorAll(".toast").forEach((x) => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); };
   async function action(fn, ok) { try { await fn(); if (ok) toast(ok); } catch (e) { console.error(e); toast("Refusé : " + (e.message || e)); } }
@@ -351,12 +374,14 @@
     const refs = col.champs.filter((c) => c.type === "ref" || c.type === "refs").map((c) => c.ref).filter((r) => !r.startsWith("/"));
     await Promise.all(refs.map(charger));
     const nouveau = id === "nouveau";
-    const d = nouveau ? {} : (S.cache[colId] || []).find((x) => x.id === id) || (await B.lire(S.clubId, colId, id).catch(() => null));
+    const pre = nouveau ? JSON.parse(sessionStorage.getItem("prefill") || "{}") : {}; sessionStorage.removeItem("prefill");
+    const d = nouveau ? pre : (S.cache[colId] || []).find((x) => x.id === id) || (await B.lire(S.clubId, colId, id).catch(() => null));
     if (!d || (!nouveau && !D.lecture(P, d, id))) return coquille(`<div class="carte">Fiche introuvable ou réservée.</div>`);
     const total = nouveau ? D.can(P.e) : D.ecriture(P, d);
     const rep = nouveau ? [] : D.champsReponse(P, d, id);
     const secs = (S.cache.sections || []).filter((s) => total && (D.president() || D.perimetre().includes("*") || D.perimetre().includes(s.id) || (S.cache.categories || []).some((c) => c.sectionId === s.id && D.perimetre().includes(c.id))));
     const cats = (S.cache.categories || []);
+    const liens = nouveau ? "" : await liensHtml(colId, d, id);
     coquille(`<form class="carte fiche" id="fiche">
       <div class="fiche-tete"><a href="javascript:history.back()" class="lien">← Retour</a><h2>${esc(nouveau ? "Nouveau : " + col.nom : nomDoc(d))}</h2></div>
       ${col.categorie ? `<div class="grille2">
@@ -368,7 +393,7 @@
         ${total || rep.length ? `<button class="btn" type="submit">Enregistrer</button>` : `<span class="muted">Lecture seule pour votre profil.</span>`}
         ${!nouveau && total && !P.garder ? `<button class="btn danger" type="button" id="suppr">Supprimer</button>` : ""}
         ${!nouveau && d.maj ? `<small class="muted">Modifié ${esc(typeof d.maj === "string" ? d.maj.slice(0, 16).replace("T", " ") : "")}</small>` : ""}
-      </div></form>`, col.nom);
+      </div></form>${liens}`, col.nom);
     const form = $("#fiche");
     const secSel = form.elements.sectionId, catSel = form.elements.categorieId;
     if (secSel && total) { const filtre = () => [...catSel.options].forEach((o) => (o.hidden = !!o.value && !!secSel.value && o.dataset.sec !== secSel.value)); secSel.onchange = () => { catSel.value = ""; filtre(); }; filtre(); }
@@ -385,6 +410,38 @@
       vider(colId); location.hash = `#/c/${S.clubId}/f/${colId}/${nid}`; if (!nouveau) vueFiche(colId, nid);
     }, "Enregistré"); };
     const sup = $("#suppr"); if (sup) sup.onclick = () => action(async () => { await B.supprimer(S.clubId, colId, id); vider(colId); history.back(); }, "Supprimé");
+  }
+
+  // Tout ce qui pointe vers cette fiche, lu dans le modèle : pour un joueur ses convocations, présences, stats, blessures,
+  // échéances… ; pour une séance ses convocations et présences. Chaque bloc a son « + Ajouter » pré-rempli.
+  // nom lisible d'une fiche liée : son titre, sinon ce qu'elle référence d'autre (la séance d'une convocation), sinon sa date
+  function titreLie(c, ch, x) {
+    if (nomDoc(x) !== x.id) return nomDoc(x);
+    const autre = c.champs.find((k) => k.type === "ref" && k.id !== ch.id && x[k.id] && !k.ref.startsWith("/"));
+    const cible = autre && (S.cache[autre.ref] || []).find((y) => y.id === x[autre.id]);
+    const date = x.date || x.debut || x.du || (cible && cible.debut) || "";
+    return [cible ? nomDoc(cible) : c.nom, date ? dateFr(date) : ""].filter(Boolean).join(" · ");
+  }
+  async function liensHtml(colId, d, id) {
+    const liens = [];
+    for (const m of modules()) for (const c of m.collections) {
+      const P2 = pol(c.id); if (!lisible(P2)) continue;
+      for (const ch of c.champs) if ((ch.type === "ref" || ch.type === "refs") && ch.ref === colId) liens.push({ c, ch, P2 });
+    }
+    if (!liens.length) return "";
+    await Promise.all([...new Set(liens.flatMap((l) => [l.c.id, ...l.c.champs.filter((k) => k.type === "ref" && !k.ref.startsWith("/")).map((k) => k.ref)]))].map(charger));
+    const blocs = liens.map(({ c, ch, P2 }) => {
+      const lst = (S.cache[c.id] || []).filter((x) => (ch.type === "refs" ? (x[ch.id] || []).includes(id) : x[ch.id] === id));
+      const tri = c.champs.find((z) => ["debut", "date", "du"].includes(z.id)); if (tri) lst.sort((a, b) => ((a[tri.id] || "") < (b[tri.id] || "") ? 1 : -1));
+      const pre = { [ch.id]: ch.type === "refs" ? [id] : id }; if (c.categorie && d.sectionId) { pre.sectionId = d.sectionId; pre.categorieId = d.categorieId || ""; }
+      const ajout = D.can(P2.e) ? `<a class="btn petit clair" href="#/c/${S.clubId}/f/${c.id}/nouveau" data-pre='${esc(JSON.stringify(pre))}'>+ Ajouter</a>` : "";
+      if (!lst.length && !ajout) return "";
+      const det = (x) => { const z = c.champs.find((k) => k.id !== ch.id && ["choix", "date", "dateheure", "nombre", "montant"].includes(k.type) && x[k.id] != null && x[k.id] !== ""); return z ? valeur(z, x[z.id]) : ""; };
+      return `<div class="lien-bloc"><div class="lien-tete"><b>${esc(c.nom)}</b><span class="compte-puce">${lst.length}</span>${ajout}</div>
+        ${lst.slice(0, 4).map((x) => `<a class="ligne" href="#/c/${S.clubId}/f/${c.id}/${x.id}"><span>${esc(titreLie(c, ch, x))}</span><small class="muted">${det(x)}</small></a>`).join("")}
+        ${lst.length > 4 ? `<a class="lien" href="#/c/${S.clubId}/m/${pol(c.id).m}/${c.id}">Voir les ${lst.length}</a>` : ""}</div>`;
+    }).filter(Boolean);
+    return blocs.length ? `<div class="carte"><h3>Lié à cette fiche</h3>${blocs.join("")}</div>` : "";
   }
 
   /* ---------- Pointage : le staff affiche un code, le joueur le saisit en arrivant ---------- */
