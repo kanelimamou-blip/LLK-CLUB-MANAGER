@@ -328,3 +328,9 @@ h4 { font-family: var(--font); }
 .onglets a { font-weight: 700; }
 .date-puce b { font-family: var(--display); font-size: 22px; }
 .score { font-family: var(--display); font-size: 19px; }
+/* Démarrage du club : catégories et équipes */
+.cat-choix { display: grid; gap: 2px; margin: 8px 0 12px; }
+.cat-l { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.cat-l .case { margin: 0; flex: 1; }
+.cat-l select { width: auto; margin: 4px 0; padding: 8px 10px; font-size: 14px; }
+.modeles { margin: 4px 0 6px; }

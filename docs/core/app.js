@@ -270,6 +270,7 @@
         <div><b>${semaine}</b><span>événements cette semaine</span></div><div><b>${joues.length}</b><span>matchs joués</span></div></div>
       <div class="puces">${(S.cache.sections || []).map((s) => `<span class="puce">${esc((S.sports[s.sportId] || {}).icone || "")} ${esc(s.nom)}</span>`).join("")}</div></div></section>`;
 
+    if (D.membre() && peutStructurer() && !(S.cache.sections || []).length) { await charger("equipes"); html += structureHtml(true); }
     if (!D.membre()) {
       if (S.membre && !S.membre.actif) html += `<div class="carte info">Votre demande d'adhésion est en attente de validation par le club.</div>`;
       else if (B.mode === "firebase" && B.uid) html += `<div class="carte"><h3>Rejoindre le club</h3><p class="muted">Joueur, parent ou staff : envoyez votre demande, le club vous donne ensuite votre accès.</p>
@@ -325,6 +326,7 @@
     if (joues.length) html += `<div class="carte"><h3>Derniers résultats</h3>${joues.slice(0, 5).map((e) => `<div class="ligne"><span>${esc(nomDoc(e))}</span><b>${e.scoreNous ?? "-"} - ${e.scoreEux ?? "-"}</b></div>`).join("")}</div>`;
     if (actus.length) html += `<div class="carte"><h3>Actualités</h3>${actus.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5).map((a) => `<div class="ligne"><div><b>${esc(a.titre)}</b><br><small>${dateFr(a.date)} · ${esc(a.texte || "")}</small></div></div>`).join("")}</div>`;
     coquille(html);
+    brancherStructure(true);
 
     app.querySelectorAll("[data-conv]").forEach((b) => (b.onclick = () => action(async () => {
       await B.ecrire(S.clubId, "convocations", b.dataset.conv, { reponse: b.dataset.rep }); vider("convocations"); vueAccueil();
@@ -424,6 +426,61 @@
       ${s.raisons.length ? `<p>${esc(s.raisons.join(" · "))}</p>` : ""}
       <div class="barres">${jours.map((j) => { const sc = scoreForme((p.forme || {})[j]); return `<div><i style="height:${sc ? sc * 20 : 4}%" class="${sc == null ? "vide" : sc <= 2.5 ? "bas" : ""}"></i><small>${new Date(j).toLocaleDateString("fr-FR", { weekday: "narrow" })}</small></div>`; }).join("")}</div>
       <p class="muted">Charge 7 jours : <b>${s.a7}</b>${s.moy ? ` · moyenne des 4 dernières semaines : ${Math.round(s.moy)}` : ""} (effort × minutes)</p></div>`;
+  }
+
+
+  /* ---------- Structure du club en un appui : saison, section, catégories (Seniors → U13…) et équipes A, B, C ----------
+     Tout passe par les collections du modèle (sections, categories, saisons, equipes) : aucune règle à recoller. */
+  const peutStructurer = () => D.president() || (D.can("structure") && D.can("effectif"));
+  const PRO = ["Seniors", "U19", "U17", "U15", "U13"];
+  function structureHtml(premiere) {
+    const secs = S.cache.sections || [], cats = S.cache.categories || [];
+    const sportId = (secs[0] && secs[0].sportId) || (S.sports.football ? "football" : Object.keys(S.sports)[0]);
+    const liste = (sp) => [...(S.sports[sp] || {}).categories || []].sort((a, b) => (PRO.indexOf(a) + 1 || 99) - (PRO.indexOf(b) + 1 || 99));
+    const existe = (code) => cats.some((c) => (c.code || c.nom) === code);
+    return `<form class="carte" id="structure"><h3>${premiere ? "Démarrer le club" : "Catégories et équipes"}</h3>
+      <p class="muted">${premiere ? "Choisissez vos catégories et le nombre d'équipes dans chacune : l'appli crée la saison, la section, les catégories et les équipes. Tout reste modifiable ensuite." : "Ajoutez une catégorie ou des équipes (B, C…) à une catégorie existante."}</p>
+      <div class="grille2"><label>Sport<select name="sport">${Object.entries(S.sports).map(([id, sp]) => `<option value="${id}" ${id === sportId ? "selected" : ""}>${esc((sp.icone || "") + " " + sp.nom)}</option>`).join("")}</select></label>
+        <label>Garçons, filles<select name="sexe"><option value="M">Garçons / hommes</option><option value="F">Filles / femmes</option><option value="Mixte">Mixte</option></select></label></div>
+      ${premiere ? `<div class="actions modeles"><button type="button" class="mini on" data-modele="pro">Club pro : Seniors → U13</button><button type="button" class="mini" data-modele="tout">Toutes les catégories</button><button type="button" class="mini" data-modele="rien">Aucune</button></div>` : ""}
+      <div class="cat-choix">${liste(sportId).map((code) => { const deja = existe(code), nEq = (S.cache.equipes || []).filter((e) => { const c = cats.find((x) => x.id === e.categorieId); return c && (c.code || c.nom) === code; }).length;
+        return `<div class="cat-l"><label class="case"><input type="checkbox" value="${esc(code)}" ${premiere && PRO.includes(code) ? "checked" : ""}> <b>${esc(code)}</b>${deja ? ` <small class="muted">${nEq} équipe(s)</small>` : ""}</label>
+          <select data-eq="${esc(code)}" aria-label="Équipes">${(deja ? [0, 1, 2, 3] : [1, 2, 3, 4]).map((n) => `<option value="${n}">${deja ? (n ? "+ " + n + " équipe" + (n > 1 ? "s" : "") : "rien à ajouter") : n + " équipe" + (n > 1 ? "s" : "") + " (" + "ABCD".slice(0, n).split("").join(", ") + ")"}</option>`).join("")}</select></div>`; }).join("")}</div>
+      <label>Autre catégorie (facultatif)<input name="autre" placeholder="ex. Réserve, U21, Féminines"></label>
+      <button class="btn large-btn">${premiere ? "Créer la structure" : "Ajouter"}</button></form>`;
+  }
+  function brancherStructure(premiere) {
+    const f = $("#structure"); if (!f) return;
+    f.sport.onchange = () => { const sp = f.sport.value; f.outerHTML = structureHtml(premiere); $("#structure").sport.value = sp; brancherStructure(premiere); };
+    f.querySelectorAll("[data-modele]").forEach((b) => (b.onclick = () => {
+      f.querySelectorAll("[data-modele]").forEach((x) => x.classList.toggle("on", x === b));
+      f.querySelectorAll(".cat-choix input").forEach((i) => (i.checked = b.dataset.modele === "tout" || (b.dataset.modele === "pro" && PRO.includes(i.value))));
+    }));
+    f.onsubmit = (e) => { e.preventDefault(); action(async () => {
+      const sportId = f.sport.value, sp = S.sports[sportId] || {}, sexe = f.sexe.value;
+      const choix = [...f.querySelectorAll(".cat-choix input:checked")].map((i) => i.value);
+      if (f.autre.value.trim()) choix.push(f.autre.value.trim());
+      const ajoutsEq = [...f.querySelectorAll(".cat-choix select")].filter((x) => +x.value > 0 && (S.cache.categories || []).some((c) => (c.code || c.nom) === x.dataset.eq) && !choix.includes(x.dataset.eq));
+      if (!choix.length && !ajoutsEq.length) throw new Error("cochez au moins une catégorie");
+      const now = new Date(), y = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+      let saison = (S.cache.saisons || []).find((x) => x.courante) || (S.cache.saisons || [])[0];
+      if (!saison) { const id = await B.ecrire(S.clubId, "saisons", null, { nom: `${y}-${y + 1}`, debut: `${y}-08-01`, fin: `${y + 1}-07-31`, courante: true }); saison = { id }; }
+      let sec = (S.cache.sections || []).find((x) => x.sportId === sportId);
+      if (!sec) { const id = await B.ecrire(S.clubId, "sections", null, { nom: sp.nom || sportId, sportId, ordre: (S.cache.sections || []).length + 1, actif: true }); sec = { id }; }
+      const equipes = async (cat, code, de, n) => { for (let i = de; i < de + n; i++) await B.ecrire(S.clubId, "equipes", null, { nom: `${code} ${"ABCDEFGH"[i] || i + 1}`, saison: saison.id, sectionId: sec.id, categorieId: cat, ordre: i + 1 }); };
+      const nbEq = (code) => (S.cache.equipes || []).filter((e) => { const c = (S.cache.categories || []).find((x) => x.id === e.categorieId); return c && (c.code || c.nom) === code; }).length;
+      let ordre = (S.cache.categories || []).length;
+      for (const code of choix) {
+        const n = +(f.querySelector(`select[data-eq="${CSS.escape(code)}"]`) || { value: 1 }).value || 1;
+        const deja = (S.cache.categories || []).find((c) => (c.code || c.nom) === code);
+        if (deja) { await equipes(deja.id, code, nbEq(code), n); continue; }
+        const age = /^U(\d+)$/i.exec(code), min = age ? y + 1 - +age[1] : null;
+        const cat = await B.ecrire(S.clubId, "categories", null, { nom: code + (sexe === "F" ? " filles" : sexe === "Mixte" ? " mixte" : ""), code, sexe, ordre: ++ordre, actif: true, sectionId: sec.id, ...(min ? { anneeMin: min, anneeMax: min + 1 } : {}) });
+        await equipes(cat, code, 0, n);
+      }
+      for (const x of ajoutsEq) { const c = S.cache.categories.find((k) => (k.code || k.nom) === x.dataset.eq); await equipes(c.id, x.dataset.eq, nbEq(x.dataset.eq), +x.value); }
+      ["saisons", "sections", "categories", "equipes"].forEach(vider); route();
+    }, "Structure créée"); };
   }
 
   /* ---------- Module : onglets des collections lisibles, puis liste filtrable ---------- */
@@ -751,7 +808,9 @@
     if (D.president()) html += `<form class="carte" id="rg-roles"><h3>Rôles du club</h3><p class="muted">Créez vos propres rôles (niveau 1 à 99). Un membre ne donne que des rôles sous son niveau.</p>
       ${Object.entries(S.R).sort((a, b) => b[1].niveau - a[1].niveau).map(([id, r]) => roleHtml(id, r, droits)).join("")}
       <div id="rg-nouveaux"></div><div class="actions"><button type="button" class="btn clair" id="rg-add">+ Nouveau rôle</button><button class="btn">Enregistrer les rôles</button></div></form>`;
+    if (peutStructurer()) { await charger("equipes"); html = structureHtml(!(S.cache.sections || []).length) + html; }
     coquille(html || `<div class="carte">Rien à régler pour votre profil.</div>`, "Réglages");
+    brancherStructure(!(S.cache.sections || []).length);
     const fc = $("#rg-club");
     if (fc) {
       const apercu = () => appliquerCouleurs(fc.principale.value, fc.accent.value);
