@@ -49,26 +49,47 @@
   }
   const nomCat = (d) => { const c = (S.cache.categories || []).find((x) => x.id === d.categorieId); const s = (S.cache.sections || []).find((x) => x.id === d.sectionId); return [s && s.nom, c && c.nom].filter(Boolean).join(" · "); };
 
+  /* ---------- Icônes au trait (même style partout, plus sobre que les émojis) ---------- */
+  const ICO = {
+    accueil: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/>',
+    base: '<path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+    effectif: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.6-3.4 2.8-5.3 5.5-5.3s4.9 1.9 5.5 5.3"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.6c2.3.2 3.7 1.9 4.2 4.6"/>',
+    sportif: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    finances: '<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3"/>',
+    communication: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/>',
+    installations: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/><circle cx="12" cy="12" r="2.5"/><path d="M3 9.5h3v5H3M21 9.5h-3v5h3"/>',
+    pointage: '<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.8-5"/>',
+    caisse: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+    membres: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16.2c.5-1.6 1.7-2.5 3.2-2.5s2.7.9 3.2 2.5M14.5 10h4M14.5 13.5h3"/>',
+    reglages: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+    admin: '<path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="M12 8v5M12 16h.01"/>',
+    clubs: '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-5h6v5"/>',
+    plus: '<circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/>',
+    profil: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1-4 3.9-6 7.5-6s6.5 2 7.5 6"/>',
+  };
+  const ico = (k, repli) => (ICO[k] ? `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]}</svg>` : `<i class="ico-txt">${esc(repli || "•")}</i>`);
+
   /* ---------- Coquille : en-tête, barre démo, navigation (en bas sur téléphone, à gauche sur ordinateur) ---------- */
   function menu() {
     if (!S.club) return [];
     const c = `#/c/${S.clubId}`;
-    const items = [{ h: c, t: "Accueil", i: "🏠" }];
+    const items = [{ h: c, t: "Accueil", k: "accueil" }];
     for (const m of modules()) {
       if (!moduleOn(m.id) || !m.collections.some((x) => lisible(pol(x.id)))) continue;
-      items.push({ h: `${c}/m/${m.id}`, t: m.nom, i: m.icone || "▫️" });
+      items.push({ h: `${c}/m/${m.id}`, t: m.nom, k: m.id, i: m.icone });
     }
-    if (moduleOn("sportif") && (D.can("sportif") || D.mesPersonnes().length)) items.push({ h: `${c}/pointage`, t: "Pointage", i: "✅" });
-    if (moduleOn("finances") && (D.can("finances") || D.mesPersonnes().length)) items.push({ h: `${c}/caisse`, t: "Caisse", i: "🧾" });
-    if (D.can("membres")) items.push({ h: `${c}/membres`, t: "Membres", i: "🪪" });
-    if (D.can("reglages") || D.president()) items.push({ h: `${c}/reglages`, t: "Réglages", i: "⚙️" });
-    if (B.estAdmin()) items.push({ h: "#/admin", t: "Admin", i: "🛡️" });
+    if (moduleOn("sportif") && (D.can("sportif") || D.mesPersonnes().length)) items.push({ h: `${c}/pointage`, t: "Pointage", k: "pointage" });
+    if (moduleOn("finances") && (D.can("finances") || D.mesPersonnes().length)) items.push({ h: `${c}/caisse`, t: "Caisse", k: "caisse" });
+    if (D.can("membres")) items.push({ h: `${c}/membres`, t: "Membres", k: "membres" });
+    if (D.can("reglages") || D.president()) items.push({ h: `${c}/reglages`, t: "Réglages", k: "reglages" });
+    if (B.estAdmin()) items.push({ h: "#/admin", t: "Admin", k: "admin" });
     return items;
   }
   function coquille(contenu, titre) {
     const club = S.club;
     const h = location.hash || "#/";
-    const nav = (B.estAdmin() && !club ? [{ h: "#/admin", t: "Admin", i: "🛡️" }, { h: "#/clubs", t: "Clubs", i: "🏟️" }] : menu());
+    const actif = (n) => h === n.h || (n.h !== "#/c/" + S.clubId && h.startsWith(n.h + "/"));
+    const nav = (B.estAdmin() && !club ? [{ h: "#/admin", t: "Admin", k: "admin" }, { h: "#/clubs", t: "Clubs", k: "clubs" }] : menu());
     app.innerHTML = `
       ${B.mode === "demo" ? barreDemo() : ""}
       <header class="top">
@@ -76,13 +97,17 @@
           ${club && club.logo ? `<img src="${esc(club.logo)}" alt="">` : `<img src="icons/logo.svg" alt="">`}
           <span><b>${esc(club ? club.nomCourt || club.nom : P.nom)}</b><small>${esc(titre || (club ? club.slogan || "" : P.slogan))}</small></span>
         </a>
-        <div class="compte">${B.mode === "firebase" ? (B.uid ? `<a class="profil-btn" href="#/profil" title="Mon profil">👤</a>` : `<a class="btn petit" href="#/connexion">Connexion</a>`) : `<a class="lien" href="#/profil">Profil</a>`}
-          ${B.estAdmin() ? `<a class="badge" href="#/admin">${esc(libelleRole())}</a>` : `<span class="badge">${esc(libelleRole())}</span>`}</div>
+        <div class="compte">${B.estAdmin() ? `<a class="badge" href="#/admin">${esc(libelleRole())}</a>` : `<span class="badge">${esc(libelleRole())}</span>`}
+          ${B.mode === "firebase" && !B.uid ? `<a class="btn petit accent" href="#/connexion">Connexion</a>` : `<a class="profil-btn" href="#/profil" title="Mon profil">${ico("profil")}</a>`}</div>
       </header>
       <div class="cadre">
-        <nav class="nav">${nav.map((n) => `<a href="${n.h}" class="${h === n.h || (n.h !== "#/c/" + S.clubId && h.startsWith(n.h + "/")) ? "actif" : ""}"><span>${n.i}</span>${esc(n.t)}</a>`).join("")}</nav>
+        <nav class="nav">${nav.map((n, i) => `<a href="${n.h}" class="${actif(n) ? "actif" : ""} ${nav.length > 5 && i >= 4 ? "en-plus" : ""}">${ico(n.k, n.i)}<span>${esc(n.t)}</span></a>`).join("")}
+          ${nav.length > 5 ? `<button type="button" class="nav-plus ${nav.slice(4).some(actif) ? "actif" : ""}" id="nav-plus">${ico("plus")}<span>Plus</span></button>` : ""}</nav>
+        ${nav.length <= 5 ? "" : `<div class="feuille" id="feuille" hidden><div class="feuille-fond" data-ferme></div><div class="feuille-corps"><div class="poignee"></div>
+          ${nav.slice(4).map((n) => `<a href="${n.h}" class="${actif(n) ? "actif" : ""}">${ico(n.k, n.i)}<span>${esc(n.t)}</span></a>`).join("")}</div></div>`}
         <main class="main">${contenu}<p class="pied">${esc(P.nom)}</p></main>
       </div>`;
+    const fe = $("#feuille"); if (fe) { $("#nav-plus").onclick = () => { fe.hidden = false; }; fe.onclick = (e) => { if (e.target.closest("a") || e.target.dataset.ferme !== undefined) fe.hidden = true; }; }
     const deco = $("[data-a=deco]"); if (deco) deco.onclick = () => B.deconnecter();
     const sel = $("#profil-demo"); if (sel) sel.onchange = () => { B.profil(sel.value); S.clubId = null; route(); };
     const reset = $("#reset-demo"); if (reset) reset.onclick = () => B.reinitialiser();
@@ -117,7 +142,7 @@
   async function route() {
     const parts = (location.hash || "#/").slice(2).split("/").filter(Boolean);
     try {
-      if (parts[0] === "admin") { S.club = null; S.clubId = null; D.regler({ membre: null }); return B.estAdmin() ? vueAdmin(parts[1]) : coquille(`<div class="carte">Espace réservé à l'admin de la plateforme.${B.uid ? `<p>Votre identifiant : <code id="mon-uid">${esc(B.uid)}</code> <button class="btn petit" id="copier-uid">Copier</button></p><p class="muted">Envoyez-le à Claude : il le met dans config.js et dans les règles, puis vous collez les règles une seule fois.</p>` : `<p><a class="btn" href="#/connexion">Se connecter</a></p>`}</div>`); }
+      if (parts[0] === "admin") { S.club = null; S.clubId = null; D.regler({ membre: null }); return B.estAdmin() ? vueAdmin(parts[1]) : coquille(`<div class="carte">Espace réservé à l'admin de la plateforme.${B.uid ? "" : `<p><a class="btn" href="#/connexion">Se connecter</a></p>`}</div>`); }
       if (parts[0] === "connexion") return vueConnexion();
       if (parts[0] === "profil") return vueProfil(false);
       // première connexion : la fiche du compte d'abord (sauf l'admin, qui doit pouvoir publier le modèle avant)
@@ -187,9 +212,9 @@
     const today = new Date().toISOString().slice(0, 10);
     const avenir = evts.filter((e) => (e.debut || "") >= today && e.statut !== "annulé").sort((a, b) => (a.debut > b.debut ? 1 : -1));
     const joues = evts.filter((e) => e.type === "match" && e.statut === "joué").sort((a, b) => (a.debut < b.debut ? 1 : -1));
-    let html = `<section class="hero"><h1>${esc(c.nom)}</h1><p>${esc(c.slogan || "")}</p>
+    let html = `<section class="hero">${c.logo ? `<img class="hero-logo" src="${esc(c.logo)}" alt="">` : ""}<h1>${esc(c.nom)}</h1>${c.slogan ? `<p>${esc(c.slogan)}</p>` : ""}
       <div class="puces">${(S.cache.sections || []).map((s) => `<span class="puce">${esc((S.sports[s.sportId] || {}).icone || "")} ${esc(s.nom)}</span>`).join("")}</div>
-      ${installee() ? "" : `<button class="btn installer" id="installer" ${invite || estIOS ? "" : "hidden"}>📲 Installer ${esc(P.nom)}</button>`}</section>`;
+      ${installee() ? "" : `<button class="btn installer" id="installer" ${invite || estIOS ? "" : "hidden"}>Installer l'appli</button>`}</section>`;
 
     if (!D.membre()) {
       if (S.membre && !S.membre.actif) html += `<div class="carte info">Votre demande d'adhésion est en attente de validation par le club.</div>`;
@@ -225,11 +250,11 @@
       if (D.can("medical")) { const bl = await charger("blessures"); tuiles.push(["Indisponibles", bl.filter((b) => b.apte === "inapte").length]); }
       if (D.can("finances") && moduleOn("finances")) { const ec = await charger("echeances"); tuiles.push(["Impayés", argent(ec.filter((e) => e.statut !== "payé" && e.statut !== "exonéré").reduce((s, e) => s + (e.montant || 0) - (e.paye || 0), 0))]); }
       tuiles.push(["Événements à venir", avenir.filter((e) => D.dansPerimetre(e)).length]);
-      html += `<div class="tuiles">${tuiles.map(([t, v]) => `<div class="tuile"><b>${esc(v)}</b><span>${esc(t)}</span></div>`).join("")}</div>`;
+      html += `<div class="tuiles stats">${tuiles.map(([t, v]) => `<div class="tuile"><b>${esc(v)}</b><span>${esc(t)}</span></div>`).join("")}</div>`;
     }
 
     if (annonces.length) html += `<div class="carte"><h3>Annonces</h3>${annonces.map((a) => `<div class="ligne"><div><b>${esc(a.titre)}</b><br><small>${esc(a.texte || "")}</small></div></div>`).join("")}</div>`;
-    html += `<div class="carte"><h3>À venir</h3>${avenir.slice(0, 6).map((e) => `<a class="ligne" href="#/c/${S.clubId}/f/evenements/${e.id}"><div><b>${esc(nomDoc(e))}</b><br><small>${esc(e.type)} · ${esc(nomCat(e))}</small></div><span>${dateFr(e.debut)}</span></a>`).join("") || `<p class="muted">Rien de prévu.</p>`}</div>`;
+    html += `<div class="carte"><h3>À venir</h3>${avenir.slice(0, 6).map((e) => { const d = new Date(e.debut); return `<a class="ligne evt" href="#/c/${S.clubId}/f/evenements/${e.id}"><span class="date-puce"><b>${d.getDate()}</b>${d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "")}</span><div class="evt-txt"><b>${esc(nomDoc(e))}</b><small>${esc([nomCat(e), String(e.debut || "").slice(11, 16)].filter(Boolean).join(" · "))}</small></div><span class="type-puce t-${esc(e.type || "")}">${esc(e.type || "")}</span></a>`; }).join("") || `<p class="muted">Rien de prévu.</p>`}</div>`;
     if (joues.length) html += `<div class="carte"><h3>Derniers résultats</h3>${joues.slice(0, 5).map((e) => `<div class="ligne"><span>${esc(nomDoc(e))}</span><b>${e.scoreNous ?? "-"} - ${e.scoreEux ?? "-"}</b></div>`).join("")}</div>`;
     if (actus.length) html += `<div class="carte"><h3>Actualités</h3>${actus.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5).map((a) => `<div class="ligne"><div><b>${esc(a.titre)}</b><br><small>${dateFr(a.date)} · ${esc(a.texte || "")}</small></div></div>`).join("")}</div>`;
     coquille(html);
@@ -576,21 +601,41 @@
     const optionnels = modules().filter((m) => !m.obligatoire);
     if (onglet === "clubs") {
       const clubs = await B.clubs();
-      coquille(ong + `<p class="muted">Chaque club a sa licence : actif ou suspendu, et les modules qu'il a souscrits. Vous nommez son président ; lui gère ensuite tout le reste.</p>
-        ${clubs.map((c) => `<form class="carte club-adm" data-id="${esc(c.id)}"><div class="ligne"><div><b>${esc(c.nom)}</b><br><small class="muted">${esc(c.id)} · ${esc(c.ville || "")}</small></div><a class="btn petit clair" href="#/c/${esc(c.id)}">Ouvrir</a></div>
-          <label class="case"><input type="checkbox" name="active" ${c.active ? "checked" : ""}> Licence active</label>
-          <div class="cases">${optionnels.map((m) => `<label class="case"><input type="checkbox" value="${m.id}" ${(c.modules || []).includes(m.id) ? "checked" : ""}> ${esc(m.icone || "")} ${esc(m.nom)}</label>`).join("")}</div>
-          <div class="grille2"><input name="offre" placeholder="Offre (ex. essentielle, complète)" value="${esc(c.offre || "")}"><button class="btn petit">Enregistrer la licence</button></div>
-          <details><summary>Nommer le président</summary><div class="grille2"><input name="puid" placeholder="Identifiant du compte"><input name="pnom" placeholder="Nom"></div><button type="button" class="btn petit" data-pres>Nommer</button></details></form>`).join("")}
-        <form class="carte" id="nv-club"><h3>Nouveau club</h3><div class="grille2"><input name="id" placeholder="identifiant (ex. jaraaf-u17)" required pattern="[a-z0-9]+(-[a-z0-9]+)*"><input name="nom" placeholder="Nom du club" required><input name="ville" placeholder="Ville"></div>
-          <div class="cases">${optionnels.map((m) => `<label class="case"><input type="checkbox" value="${m.id}" checked> ${esc(m.nom)}</label>`).join("")}</div><button class="btn">Créer le club</button></form>`, "Admin plateforme");
+      const lien = (c) => location.origin + location.pathname + "#/c/" + c.id;
+      coquille(ong + `<form class="carte" id="nv-club"><h3>Nouveau club</h3>
+          <label>Nom du club<input name="nom" placeholder="ex. Lerrgui FC" required></label>
+          <label>Ville<input name="ville" placeholder="ex. Dakar"></label>
+          <label>Téléphone du président<input name="ptel" type="tel" inputmode="tel" placeholder="Laisser vide si c'est vous"></label>
+          <details><summary>Modules inclus : tous</summary><div class="cases">${optionnels.map((m) => `<label class="case"><input type="checkbox" value="${m.id}" checked> ${esc(m.nom)}</label>`).join("")}</div></details>
+          <button class="btn large-btn">Créer le club</button></form>
+        <h3 class="titre-sec">Clubs <span class="muted">${clubs.length}</span></h3>
+        ${clubs.map((c) => `<form class="carte club-adm" data-id="${esc(c.id)}"><div class="ligne"><div class="club-id">${c.logo ? `<img src="${esc(c.logo)}" alt="">` : `<i>${esc((c.nom || "?").slice(0, 2).toUpperCase())}</i>`}<div><b>${esc(c.nom)}</b><br><small class="muted">${esc(c.ville || "")}</small></div></div>
+            <span class="pill ${c.active ? "on" : "off"}">${c.active ? "Actif" : "Suspendu"}</span></div>
+          <div class="actions"><a class="btn petit" href="#/c/${esc(c.id)}">Ouvrir</a><a class="btn petit clair" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(c.nom + " sur " + P.nom + " : " + lien(c))}">Partager le lien</a></div>
+          <details><summary>Président</summary><label>Téléphone du président<input name="ptel" type="tel" inputmode="tel" placeholder="Laisser vide si c'est vous"></label><button type="button" class="btn petit" data-pres>Nommer président</button></details>
+          <details><summary>Licence et modules</summary><label class="case"><input type="checkbox" name="active" ${c.active ? "checked" : ""}> Licence active</label>
+            <div class="cases">${optionnels.map((m) => `<label class="case"><input type="checkbox" value="${m.id}" ${(c.modules || []).includes(m.id) ? "checked" : ""}> ${esc(m.nom)}</label>`).join("")}</div>
+            <label>Offre<input name="offre" placeholder="ex. essentielle, complète" value="${esc(c.offre || "")}"></label><button class="btn petit">Enregistrer</button></details></form>`).join("")}`, "Admin plateforme");
+      // le président se choisit par son numéro (il doit s'être connecté une fois) ; vide = soi-même
+      const nommer = async (clubId, saisie) => {
+        if (!saisie.trim()) { const c = B.compte || {}; await B.nommerPresident(clubId, B.uid, [c.prenom, c.nom].filter(Boolean).join(" ") || "Président"); return "vous"; }
+        const tel = telComplet(saisie); if (tel.replace(/\D/g, "").length < 9) throw new Error("numéro incomplet");
+        const u = await B.compteParTel(tel);
+        if (!u) throw new Error(`${tel} ne s'est pas encore connecté à l'appli. Envoyez-lui le lien ; dès sa première connexion, revenez appuyer sur « Nommer président ».`);
+        await B.nommerPresident(clubId, u.uid, [u.prenom, u.nom].filter(Boolean).join(" ") || tel); return [u.prenom, u.nom].filter(Boolean).join(" ") || tel;
+      };
       app.querySelectorAll(".club-adm").forEach((f) => {
-        f.onsubmit = (e) => { e.preventDefault(); action(() => B.majLicence(f.dataset.id, { active: f.active.checked, offre: f.offre.value.trim(), modules: [...f.querySelectorAll(".cases input:checked")].map((i) => i.value) }), "Licence enregistrée"); };
-        f.querySelector("[data-pres]").onclick = () => action(async () => { if (!f.puid.value.trim()) throw new Error("identifiant manquant"); await B.nommerPresident(f.dataset.id, f.puid.value.trim(), f.pnom.value.trim() || "Président"); }, "Président nommé");
+        f.onsubmit = (e) => { e.preventDefault(); action(() => B.majLicence(f.dataset.id, { active: f.active.checked, offre: f.offre.value.trim(), modules: [...f.querySelectorAll(".cases input:checked")].map((i) => i.value) }).then(() => vueAdmin("clubs")), "Licence enregistrée"); };
+        f.querySelector("[data-pres]").onclick = () => action(async () => { const qui = await nommer(f.dataset.id, f.ptel.value); toast("Président nommé : " + qui); });
       });
       $("#nv-club").onsubmit = (e) => { e.preventDefault(); const f = e.target; action(async () => {
-        await B.creerClub(f.id.value.trim(), { nom: f.nom.value.trim(), ville: f.ville.value.trim(), pays: "Sénégal", devise: "F CFA", active: true, modules: [...f.querySelectorAll(".cases input:checked")].map((i) => i.value), offre: "" });
-        vueAdmin("clubs"); }, "Club créé"); };
+        const nom = f.nom.value.trim();
+        const base = nom.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "club";
+        let id = base, n = 2; while (clubs.some((c) => c.id === id)) id = `${base}-${n++}`;
+        await B.creerClub(id, { nom, ville: f.ville.value.trim(), pays: "Sénégal", devise: "F CFA", active: true, modules: [...f.querySelectorAll(".cases input:checked")].map((i) => i.value), offre: "" });
+        let qui = ""; try { qui = await nommer(id, f.ptel.value); } catch (er) { toast(er.message); }
+        location.hash = qui === "vous" ? "#/c/" + id : "#/admin/clubs"; if (qui !== "vous") vueAdmin("clubs");
+      }, "Club créé"); };
     }
     if (onglet === "modele") {
       const mods = S.modele.modules, droits = mods.droits;
@@ -664,7 +709,7 @@
   /* ---------- Clubs et connexion ---------- */
   async function vueClubs() {
     const clubs = await B.clubs();
-    coquille(`<h2>Clubs</h2>${clubs.filter((c) => c.active || B.estAdmin()).map((c) => `<a class="carte ligne" href="#/c/${esc(c.id)}"><b>${esc(c.nom)}</b><span class="muted">${esc(c.ville || "")}</span></a>`).join("") || `<div class="carte"><p>Aucun club pour l'instant.</p>${B.uid ? (B.estAdmin() ? `<a class="btn" href="#/admin">Espace admin</a>` : `<a class="btn clair" href="#/admin">Mon identifiant</a>`) : `<a class="btn" href="#/connexion">Connexion</a>`} <a class="btn clair" href="?demo#/">Voir la démo</a></div>`}`);
+    coquille(`<h2>Clubs</h2>${clubs.filter((c) => c.active || B.estAdmin()).map((c) => `<a class="carte ligne" href="#/c/${esc(c.id)}"><b>${esc(c.nom)}</b><span class="muted">${esc(c.ville || "")}</span></a>`).join("") || `<div class="carte"><p>Aucun club pour l'instant.</p>${B.uid ? (B.estAdmin() ? `<a class="btn" href="#/admin">Espace admin</a>` : "") : `<a class="btn" href="#/connexion">Connexion</a>`} <a class="btn clair" href="?demo#/">Voir la démo</a></div>`}`);
   }
   // Connexion par téléphone : code secret (gratuit) ou code SMS, selon le réglage de la plateforme (#admin > Connexion)
   const telComplet = (v) => { const n = String(v || "").replace(/[^\d+]/g, ""); return n.startsWith("+") ? n : n.startsWith("00") ? "+" + n.slice(2) : (P.indicatif || "+221") + n; };
@@ -698,7 +743,7 @@
     const champs = champsCompte();
     const c = B.compte || {};
     coquille(`<form class="carte fiche" id="profil"><div class="fiche-tete"><h2>${premiere ? "Bienvenue ! Complétez votre profil" : "Mon profil"}</h2>
-        <p class="muted">Téléphone : <b>${esc(c.tel || "—")}</b>${B.uid ? ` · identifiant : <code>${esc(B.uid)}</code>` : ""}</p></div>
+        <p class="muted">Téléphone : <b>${esc(c.tel || "—")}</b></p></div>
       ${champs.map((ch) => `<label class="${ch.type === "texteLong" ? "large" : ""}" data-champ="${ch.id}">${esc(ch.label)}<span class="req"></span>${champHtml(ch, c[ch.id], true, {})}</label>`).join("")}
       <div class="actions"><button class="btn">${premiere ? "Continuer" : "Enregistrer"}</button>${B.mode === "firebase" ? `<button type="button" class="btn clair" data-a="deco">Déconnexion</button>` : ""}</div></form>`, "Mon profil");
     const f = $("#profil");

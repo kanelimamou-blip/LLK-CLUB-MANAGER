@@ -70,7 +70,9 @@ const { chromium } = require("playwright");
   await page.click("#md-champ button"); await page.waitForTimeout(500);
   await page.screenshot({ path: "/tmp/club-s-admin-modele.png", fullPage: true });
   await page.goto(U + "#/admin/clubs"); await page.waitForSelector("#nv-club");
-  await page.fill("#nv-club [name=id]", "jaraaf-test"); await page.fill("#nv-club [name=nom]", "Jaraaf Test"); await page.click("#nv-club button"); await page.waitForTimeout(400);
+  await page.fill("#nv-club [name=nom]", "Jaraaf Test"); await page.click("#nv-club button"); await page.waitForTimeout(600);
+  console.log("après création :", page.url());
+  await page.goto(U + "#/admin/clubs"); await page.waitForSelector(".club-adm");
   console.log("clubs admin:", await page.$$eval(".club-adm b", (r) => r.map((x) => x.textContent).join(",")));
   await page.screenshot({ path: "/tmp/club-s-admin-clubs.png", fullPage: true });
   // le président voit le nouveau champ

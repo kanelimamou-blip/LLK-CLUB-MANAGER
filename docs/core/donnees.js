@@ -80,6 +80,7 @@
     async publierModele(doc) { Demo.s.modele = doc; Demo.sauver(); },
     async creerClub(c, club) { Demo.s.clubs[c] = { club, membres: {}, reglages: {}, compteurs: { recu: 0 }, codes: {}, pointages: {}, paiements: {}, collections: {} }; Demo.sauver(); },
     async majLicence(c, data) { Object.assign(Demo.s.clubs[c].club, data); Demo.sauver(); },
+    async compteParTel(tel) { return { uid: "demo-" + tel.replace(/\D/g, ""), prenom: "", nom: tel }; },
     async nommerPresident(c, uid, nom) { Demo.s.clubs[c].membres[uid] = { nom, tel: "", role: "president", perimetre: ["*"], personneId: "", enfants: [], actif: true }; Demo.sauver(); },
     async publierSports(map) { Demo.sports_ = map; },
     async reglagesPlateforme() { return JSON.parse(localStorage.getItem(CLE + "-plateforme") || "{}"); },
@@ -209,6 +210,7 @@
     async creerClub(c, club) { await db.doc("clubs/" + c).set({ ...club, ...trace() }); },
     async majLicence(c, data) { await db.doc("clubs/" + c).update({ ...data, ...trace() }); },
     async publierSports(map) { const b = db.batch(); for (const [id, sp] of Object.entries(map)) b.set(db.doc("sports/" + id), sp); await b.commit(); },
+    async compteParTel(tel) { const q = await db.collection("users").where("tel", "==", tel).limit(1).get(); return q.empty ? null : { uid: q.docs[0].id, ...q.docs[0].data() }; },
     async nommerPresident(c, uid, nom) { await db.doc(`clubs/${c}/membres/${uid}`).set({ nom, tel: "", role: "president", perimetre: ["*"], personneId: "", enfants: [], actif: true, depuis: ts(), ...trace() }); },
   };
 

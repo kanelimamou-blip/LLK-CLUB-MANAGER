@@ -39,7 +39,7 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   await page.goto(U + "#/admin/sports"); await page.waitForSelector("#sp-pub", { state: "attached" }); await page.click("details summary"); await page.click("#sp-pub"); console.log("sports:", await toast());
   await page.goto(U + "#/admin/connexion"); await page.waitForSelector("#cx-reg"); await page.check("#cx-reg [name=google]"); await page.click("#cx-reg button"); console.log("réglage connexion:", await toast());
   await page.goto(U + "#/admin/clubs"); await page.waitForSelector("#nv-club");
-  await page.fill("#nv-club [name=id]", "test-fc"); await page.fill("#nv-club [name=nom]", "Test FC"); await page.click("#nv-club button"); console.log("club:", await toast());
+  await page.fill("#nv-club [name=nom]", "Test FC"); await page.fill("#nv-club [name=ptel]", "78 111 22 33"); await page.click("#nv-club button"); console.log("club (président pas encore connecté):", await toast()); await page.waitForTimeout(1500);
   await deco();
   // Président : première connexion par téléphone + code secret, profil, puis nommé par l'admin
   await codeLogin("78 111 22 33", "424242", true);
@@ -52,7 +52,7 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   await codeLogin("78 111 22 33", "000000", false);
   await codeLogin("77 000 00 01", "111111", false);
   await page.goto(U + "#/admin/clubs"); await page.waitForSelector(".club-adm");
-  await page.click(".club-adm details summary"); await page.fill(".club-adm [name=puid]", presUid); await page.fill(".club-adm [name=pnom]", "Ousmane Ba");
+  await page.click(".club-adm details summary"); await page.fill(".club-adm [name=ptel]", "78 111 22 33");
   await page.click(".club-adm [data-pres]"); console.log("président nommé:", await toast());
   await deco();
   await codeLogin("78 111 22 33", "424242", false);
