@@ -452,3 +452,7 @@ img.zoomable.zoom { position: fixed; inset: 0; z-index: 99; width: 100vw; height
 .hero.avec-photo { background: linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.55) 45%, var(--deep) 100%), var(--couv) center 30% / cover; }
 .hero.avec-photo .pitch { opacity: .08; }
 .hero.avec-photo .hero-in { padding-top: 120px; }
+.kit-apercu { border-radius: 18px; padding: 18px; color: #fff; background-size: cover; background-position: center 30%; display: grid; gap: 4px; justify-items: start; margin-bottom: 12px; min-height: 180px; align-content: end; }
+.kit-apercu img { width: 70px; height: 70px; object-fit: contain; }
+.kit-apercu b { font: 800 28px var(--display); text-transform: uppercase; }
+.kit-coul { display: flex; gap: 6px; } .kit-coul i { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; }

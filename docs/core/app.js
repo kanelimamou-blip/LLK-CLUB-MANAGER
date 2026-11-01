@@ -1118,7 +1118,21 @@
       ${Object.entries(S.R).sort((a, b) => b[1].niveau - a[1].niveau).map(([id, r]) => roleHtml(id, r, droits)).join("")}
       <div id="rg-nouveaux"></div><div class="actions"><button type="button" class="btn clair" id="rg-add">+ Nouveau rôle</button><button class="btn">Enregistrer les rôles</button></div></form>`;
     if (peutStructurer()) { await charger("equipes"); html = structureHtml(!(S.cache.sections || []).length) + html; }
+    // kit prêt (logo, couverture, couleurs) préparé pour ce club : un appui, rien à télécharger
+    const dossier = "clubs/" + S.clubId + "/";
+    const kit = D.can("reglages") ? await fetch(dossier + "kit.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+    if (kit) html = `<div class="carte kit"><h3>Kit aux couleurs du club</h3><div class="kit-apercu" style="background-image:linear-gradient(180deg,#0005,#000c),url('${dossier + kit.couverture}')"><img src="${dossier + kit.logo}" alt=""><b>${esc(kit.nom)}</b><small>${esc(kit.slogan || "")}</small>
+      <span class="kit-coul"><i style="background:${esc(kit.couleurs.principale)}"></i><i style="background:${esc(kit.couleurs.accent)}"></i></span></div>
+      <button class="btn accent" id="kit-go">Appliquer le kit (logo, couverture, couleurs, nom)</button></div>` + html;
     coquille(html || `<div class="carte">Rien à régler pour votre profil.</div>`, "Réglages");
+    const kg = $("#kit-go"); if (kg) kg.onclick = () => action(async () => {
+      const blob = (f) => fetch(dossier + f).then((r) => { if (!r.ok) throw new Error("image du kit introuvable"); return r.blob(); });
+      const { url: logo } = await lireLogo(await blob(kit.logo));
+      const couverture = kit.couverture ? await lirePhoto(await blob(kit.couverture), false) : "";
+      await B.majClub(S.clubId, { nom: kit.nom, nomCourt: kit.nomCourt || kit.nom, slogan: kit.slogan || "", ville: kit.ville || S.club.ville || "", logo, couleurs: kit.couleurs });
+      if (couverture) await B.ecrireReglage(S.clubId, "apparence", { couverture });
+      const id = S.clubId; S.clubId = null; location.hash = "#/c/" + id; route();
+    }, "Kit appliqué : l'appli est aux couleurs du club");
     brancherStructure(!(S.cache.sections || []).length);
     const fc = $("#rg-club");
     if (fc) {

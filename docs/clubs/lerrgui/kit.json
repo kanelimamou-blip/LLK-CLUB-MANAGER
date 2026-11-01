@@ -1,0 +1,12 @@
+{
+ "nom": "ASC Lergui",
+ "nomCourt": "ASC Lergui",
+ "slogan": "Cambérène · Le club c'est nous",
+ "ville": "Cambérène",
+ "logo": "logo.png",
+ "couverture": "couverture.jpg",
+ "couleurs": {
+  "principale": "#141414",
+  "accent": "#E8B923"
+ }
+}
