@@ -8,7 +8,7 @@
     "directeur_sportif": { "nom": "Directeur sportif", "niveau": 70, "droits": ["structure", "membres", "effectif", "sportif"] },
     "entraineur": { "nom": "Entraîneur", "niveau": 40, "droits": ["effectif", "sportif"] },
     "adjoint": { "nom": "Entraîneur adjoint / préparateur", "niveau": 30, "droits": ["sportif"] },
-    "medecin": { "nom": "Staff médical", "niveau": 40, "droits": ["medical", "sportif"] },
+    "medecin": { "nom": "Staff médical", "niveau": 40, "droits": ["medical", "sportif", "effectif"] },
     "intendant": { "nom": "Intendant", "niveau": 30, "droits": ["installations"] },
     "communication": { "nom": "Chargé de communication", "niveau": 30, "droits": ["communication"] }
   }

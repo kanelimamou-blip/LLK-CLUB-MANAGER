@@ -334,3 +334,5 @@ h4 { font-family: var(--font); }
 .cat-l .case { margin: 0; flex: 1; }
 .cat-l select { width: auto; margin: 4px 0; padding: 8px 10px; font-size: 14px; }
 .modeles { margin: 4px 0 6px; }
+.qr { width: 220px; max-width: 70%; margin: 6px auto 0; background: #fff; border-radius: 16px; padding: 8px; }
+.qr svg { width: 100%; height: auto; display: block; }

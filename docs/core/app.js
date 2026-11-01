@@ -200,7 +200,7 @@
       if (!v) return vueAccueil();
       if (v === "m") return vueModule(parts[3], parts[4]);
       if (v === "f") return vueFiche(parts[3], parts[4]);
-      if (v === "pointage") return vuePointage();
+      if (v === "pointage") { if (parts[3]) sessionStorage.setItem("pt-evt", parts[3]); return vuePointage(parts[4] || ""); }
       if (v === "forme") return vueForme();
       if (v === "caisse") return vueCaisse();
       if (v === "membres") return vueMembres();
@@ -500,7 +500,7 @@
     if (f.q) lst = lst.filter((d) => JSON.stringify(d).toLowerCase().includes(f.q.toLowerCase()));
     const tri = col.champs.find((c) => ["debut", "date", "du"].includes(c.id));
     if (tri) lst.sort((a, b) => ((a[tri.id] || "") < (b[tri.id] || "") ? 1 : -1)); else lst.sort((a, b) => nomDoc(a).localeCompare(nomDoc(b)));
-    const colonnes = (col.colonnes || col.champs.slice(0, 3).map((c) => c.id)).map((id) => col.champs.find((c) => c.id === id) || { id, type: id === "sectionId" ? "ref" : "texte", ref: "sections", label: id });
+    const colonnes = (col.colonnes || col.champs.slice(0, 3).map((c) => c.id)).filter((id) => !(col.categorie && id === "categorieId")).map((id) => col.champs.find((c) => c.id === id) || (id === "sectionId" ? { id, type: "ref", ref: "sections", label: "Section" } : { id, type: "texte", label: id }));
     const peutCreer = D.can(P.e);
     coquille(`
       <div class="onglets">${cols.map((c) => `<a href="#/c/${S.clubId}/m/${modId}/${c.id}" class="${c.id === col.id ? "actif" : ""}">${esc(c.nom)}</a>`).join("")}</div>
@@ -637,7 +637,9 @@
   }
 
   /* ---------- Pointage : le staff affiche un code, le joueur le saisit en arrivant ---------- */
-  async function vuePointage() {
+  // QR code du pointage : le joueur le scanne avec l'appareil photo, l'appli s'ouvre sur la séance avec le code déjà rempli
+  const qrSvg = (texte) => { if (!window.qrcode) return ""; const q = qrcode(0, "M"); q.addData(texte); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); };
+  async function vuePointage(codeQr = "") {
     const evts = await charger("evenements");
     const auj = new Date().toISOString().slice(0, 10);
     const proches = evts.filter((e) => (e.debut || "").slice(0, 10) >= new Date(Date.now() - 864e5).toISOString().slice(0, 10)).sort((a, b) => (a.debut > b.debut ? 1 : -1)).slice(0, 20);
@@ -650,13 +652,13 @@
       const valide = code && new Date(code.expire) > new Date();
       const pts = await B.pointages(S.clubId, evt.id).catch(() => []);
       const ps = (await charger("personnes")).filter((p) => p.type === "joueur" && (evt.categorieId ? p.categorieId === evt.categorieId : p.sectionId === evt.sectionId));
-      html += `<div class="carte centre"><h3>Code du jour</h3>${valide ? `<div class="code">${esc(code.code)}</div><p class="muted">Valable jusqu'à ${new Date(code.expire).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}. Les joueurs le saisissent dans l'appli en arrivant.</p>` : `<p class="muted">Pas de code actif.</p>`}
+      html += `<div class="carte centre"><h3>Code du jour</h3>${valide ? `<div class="qr">${qrSvg(location.origin + location.pathname + "#/c/" + S.clubId + "/pointage/" + evt.id + "/" + code.code)}</div><div class="code">${esc(code.code)}</div><p class="muted">Valable jusqu'à ${new Date(code.expire).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}. Les joueurs scannent le QR code ou tapent le code en arrivant.</p>` : `<p class="muted">Pas de code actif.</p>`}
         <button class="btn" id="pt-gen">${valide ? "Nouveau code" : "Générer le code (3 h)"}</button></div>
         <div class="carte"><h3>Présents : ${pts.length} / ${ps.length}</h3>${ps.map((p) => { const ok = pts.find((x) => x.personneId === p.id);
           return `<div class="ligne"><span>${esc(nomDoc(p))}</span>${ok ? `<span class="ok">✓ ${ok.manuel ? "pointé par le staff" : "a pointé"}</span>` : `<button class="mini" data-man="${p.id}">Pointer</button>`}</div>`; }).join("") || `<p class="muted">Aucun joueur dans cette catégorie.</p>`}</div>`;
     }
     if (evt && D.mesPersonnes().length && S.membre.personneId) {
-      html += `<div class="carte centre"><h3>Je suis arrivé</h3><input id="pt-code" inputmode="numeric" maxlength="8" placeholder="Code donné par le coach" class="gros"><button class="btn" id="pt-go">Pointer</button></div>`;
+      html += `<div class="carte centre"><h3>Je suis arrivé</h3><input id="pt-code" inputmode="numeric" maxlength="8" placeholder="Code donné par le coach" class="gros" value="${esc(codeQr)}"><button class="btn" id="pt-go">Pointer</button></div>`;
     }
     if (!evt) html += `<p class="muted">Aucun événement proche.</p>`;
     coquille(html, "Pointage");
@@ -667,6 +669,7 @@
     }, "Code créé");
     app.querySelectorAll("[data-man]").forEach((b) => (b.onclick = () => action(async () => { await B.pointer(S.clubId, evt.id, b.dataset.man, "", { manuel: true, sectionId: evt.sectionId || "", categorieId: evt.categorieId || "" }); vuePointage(); }, "Pointé")));
     const go = $("#pt-go"); if (go) go.onclick = () => action(async () => { await B.pointer(S.clubId, evt.id, S.membre.personneId, $("#pt-code").value.trim(), { sectionId: evt.sectionId || "", categorieId: evt.categorieId || "" }); }, "Présence enregistrée ✓");
+    if (go && codeQr) go.click();
   }
 
   /* ---------- Caisse : reçus numérotés, jamais effacés ---------- */
