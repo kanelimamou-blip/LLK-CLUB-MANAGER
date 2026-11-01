@@ -1103,7 +1103,11 @@
         const tel = telComplet(saisie); if (tel.replace(/\D/g, "").length < 9) throw new Error("numéro incomplet");
         const u = await B.compteParTel(tel);
         if (!u) throw new Error(`${tel} ne s'est pas encore connecté à l'appli. Envoyez-lui le lien ; dès sa première connexion, revenez appuyer sur « Nommer président ».`);
-        await B.nommerPresident(clubId, u.uid, [u.prenom, u.nom].filter(Boolean).join(" ") || tel); return [u.prenom, u.nom].filter(Boolean).join(" ") || tel;
+        await B.nommerPresident(clubId, u.uid, [u.prenom, u.nom].filter(Boolean).join(" ") || tel);
+        // passation : si c'était vous le président, vous restez au club comme membre (le nouveau président vous donne ensuite votre rôle, ex. Trésorier)
+        const moi = u.uid !== B.uid ? await B.monMembre(clubId) : null;
+        if (moi && moi.role === "president") { await B.ecrireMembre(clubId, B.uid, { role: "membre", perimetre: [] }); S.clubId = null; }
+        return ([u.prenom, u.nom].filter(Boolean).join(" ") || tel) + (moi && moi.role === "president" ? ". Vous restez membre : il vous donne votre rôle dans Membres" : "");
       };
       app.querySelectorAll(".club-adm").forEach((f) => {
         f.onsubmit = (e) => { e.preventDefault(); action(() => B.majLicence(f.dataset.id, { active: f.active.checked, offre: f.offre.value.trim(), modules: [...f.querySelectorAll(".cases input:checked")].map((i) => i.value) }).then(() => vueAdmin("clubs")), "Licence enregistrée"); };
