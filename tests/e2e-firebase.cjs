@@ -25,7 +25,7 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   };
   const profil = async (prenom, nom, profil, extra = {}) => {
     await page.goto(U + "#/"); await page.waitForSelector("#profil");
-    const uid = await page.$eval("#profil code", (c) => c.textContent);
+    const uid = await page.evaluate(() => firebase.auth().currentUser.uid);
     await page.selectOption("[name=profil]", profil);
     await page.fill("[name=prenom]", prenom); await page.fill("[name=nom]", nom);
     for (const [k, v] of Object.entries(extra)) { const el = await page.$(`[name=${k}]`); if ((await el.evaluate((e) => e.tagName)) === "SELECT") await el.selectOption(v); else await el.fill(v); }
