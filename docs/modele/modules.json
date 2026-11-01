@@ -1,5 +1,6 @@
 {
   "_lisezmoi": "LE fichier du modèle. Chaque module déclare ses collections Firestore (sous clubs/{clubId}/), qui peut lire, quel droit faut-il pour écrire, et les champs. Après une modification : npm run regles (réécrit la politique dans firestore.rules). L'appli construit ses écrans (listes + fiches) à partir de ce même fichier.",
+  "version": 2,
   "_aide": {
     "lire": "public = tout le monde (vitrine) ; public? = public si le document a public=true, sinon membres ; membre = membres actifs du club ; sinon le nom d'un droit (limité au périmètre du membre)",
     "ecrire": "le droit nécessaire pour créer, modifier, supprimer (toujours limité au périmètre : sections et catégories du membre)",
@@ -383,7 +384,9 @@
           "reponse": [
             "tel",
             "photo",
-            "contactUrgence"
+            "contactUrgence",
+            "forme",
+            "charges"
           ],
           "colonnes": [
             "nom",
@@ -511,6 +514,16 @@
               "label": "Statut"
             },
             {
+              "id": "dispo",
+              "type": "choix",
+              "options": [
+                "disponible",
+                "à surveiller",
+                "indisponible"
+              ],
+              "label": "Disponibilité (staff)"
+            },
+            {
               "id": "uid",
               "type": "texte",
               "label": "Compte lié (identifiant)",
@@ -520,6 +533,18 @@
               "id": "notes",
               "type": "texteLong",
               "label": "Notes du staff"
+            },
+            {
+              "id": "forme",
+              "type": "map",
+              "label": "Forme du matin (rempli par le joueur)",
+              "systeme": true
+            },
+            {
+              "id": "charges",
+              "type": "map",
+              "label": "Effort des séances (rempli par le joueur)",
+              "systeme": true
             }
           ]
         },

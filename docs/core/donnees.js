@@ -16,6 +16,20 @@
   };
   const datesDemo = (o) => (Array.isArray(o) ? o.map(datesDemo) : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, datesDemo(v)])) : dateDemo(o));
 
+  // démo : 3 semaines de réponses de forme et d'efforts, un joueur fatigué, un qui n'a pas encore répondu ce matin
+  function formeDemo(ps) {
+    const j = (n) => { const d = new Date(Date.now() - n * 864e5); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+    Object.entries(ps).filter(([, p]) => p.type === "joueur").forEach(([id, p], k) => {
+      p.forme = {}; p.charges = {};
+      for (let n = 21; n >= 0; n--) {
+        if (n === 0 && k === 0) continue;
+        const bas = k === 2 && n < 2, v = (b) => Math.max(1, Math.min(5, b + ((n + k) % 3) - 1));
+        p.forme[j(n)] = { sommeil: bas ? 2 : v(4), energie: bas ? 2 : v(4), muscles: bas ? 2 : v(3), moral: v(4), envie: bas ? 3 : v(5), h: "07:4" + (n % 10), ...(bas && n === 0 ? { douleur: "ischio droit" } : {}) };
+        if (n % 2 === 1 || (k === 3 && n < 7)) p.charges["demo-" + n] = { d: j(n), rpe: k === 3 && n < 7 ? 8 : 4 + ((n + k) % 4), min: 90 };
+      }
+    });
+  }
+
   /* ================= Mode démo ================= */
   const CLE = "club-demo-v2";
   const Demo = {
@@ -25,11 +39,12 @@
       const [mods, roles, sports, ex] = await Promise.all([json("modules.json"), json("roles.json"), json("sports.json"), json("exemple-club.json")]);
       Demo.sports_ = Object.fromEntries(Object.entries(sports).filter(([k]) => !k.startsWith("_")));
       const enregistre = JSON.parse(localStorage.getItem(CLE) || "null");
-      if (enregistre && enregistre.version === 1) Demo.s = enregistre;
+      if (enregistre && enregistre.version === 2) Demo.s = enregistre;
       else {
         const e = datesDemo(ex);
-        Demo.s = { version: 1, modele: Modele.compiler(mods, roles).doc, clubs: {} };
+        Demo.s = { version: 2, modele: Modele.compiler(mods, roles).doc, clubs: {} };
         Demo.s.clubs[e.id] = { club: e.club, membres: e.membres, reglages: {}, compteurs: { recu: 0 }, codes: {}, pointages: {}, paiements: {}, collections: e.collections };
+        formeDemo(e.collections.personnes || {});
         Demo.sauver();
       }
       Demo.uid = localStorage.getItem(CLE + "-profil") || "demo-president";

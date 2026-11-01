@@ -64,6 +64,7 @@
     reglages: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
     admin: '<path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="M12 8v5M12 16h.01"/>',
     clubs: '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-5h6v5"/>',
+    forme: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
     plus: '<circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/>',
     profil: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1-4 3.9-6 7.5-6s6.5 2 7.5 6"/>',
   };
@@ -78,6 +79,7 @@
       if (!moduleOn(m.id) || !m.collections.some((x) => lisible(pol(x.id)))) continue;
       items.push({ h: `${c}/m/${m.id}`, t: m.nom, k: m.id, i: m.icone });
     }
+    if (moduleOn("sportif") && D.can("effectif")) items.push({ h: `${c}/forme`, t: "Forme", k: "forme" });
     if (moduleOn("sportif") && (D.can("sportif") || D.mesPersonnes().length)) items.push({ h: `${c}/pointage`, t: "Pointage", k: "pointage" });
     if (moduleOn("finances") && (D.can("finances") || D.mesPersonnes().length)) items.push({ h: `${c}/caisse`, t: "Caisse", k: "caisse" });
     if (D.can("membres")) items.push({ h: `${c}/membres`, t: "Membres", k: "membres" });
@@ -101,6 +103,7 @@
     if (moduleOn("finances") && D.can("finances")) out.push({ h: `#/c/${S.clubId}/caisse`, t: "Encaisser", k: "caisse", o: 2.5 });
     return out.sort((a, b) => a.o - b.o).slice(0, 12);
   }
+  const majModeleDispo = () => B.estAdmin() && S.versionFichier && S.modele && (S.modele.nonPublie || ((S.modele.modules || {}).version || 1) < S.versionFichier);
   function coquille(contenu, titre) {
     const club = S.club;
     const h = location.hash || "#/";
@@ -122,11 +125,16 @@
           ${nav.length > 5 ? `<button type="button" class="nav-plus ${nav.slice(4).some(actif) ? "actif" : ""}" id="nav-plus">${ico("plus")}<span>Plus</span></button>` : ""}</nav>
         ${nav.length <= 5 ? "" : `<div class="feuille" id="feuille" hidden><div class="feuille-fond" data-ferme></div><div class="feuille-corps"><div class="poignee"></div>
           ${nav.slice(4).map((n) => `<a href="${n.h}" class="${actif(n) ? "actif" : ""}">${ico(n.k, n.i)}<span>${esc(n.t)}</span></a>`).join("")}</div></div>`}
-        <main class="main">${contenu}<p class="pied">${esc(P.nom)}</p></main>
+        <main class="main">${majModeleDispo() ? `<div class="carte info maj-modele"><div><b>Nouveautés disponibles</b><br><small>Une nouvelle version du modèle est prête (ex. suivi de forme des joueurs). Un appui suffit, sans toucher à Firebase.</small></div><button class="btn petit" id="maj-modele">Mettre à jour</button></div>` : ""}${contenu}<p class="pied">${esc(P.nom)}</p></main>
         ${ajouts.length ? `<button type="button" class="fab" id="fab" aria-label="Ajouter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         <div class="feuille" id="feuille-ajout" hidden><div class="feuille-fond" data-ferme></div><div class="feuille-corps liste-ajout"><div class="poignee"></div><h3>Ajouter</h3>
           ${ajouts.map((a) => `<a href="${a.h}" ${a.pre ? `data-pre='${esc(JSON.stringify(a.pre))}'` : ""}>${ico(a.k, a.i)}<span>${esc(a.t)}</span></a>`).join("")}</div></div>` : ""}
       </div>`;
+    const mm = $("#maj-modele"); if (mm) mm.onclick = () => action(async () => {
+      const [m, r] = await Promise.all(["modules.json", "roles.json"].map((f) => fetch("modele/" + f, { cache: "no-cache" }).then((x) => x.json())));
+      const { erreurs, doc } = Modele.compiler(m, r); if (erreurs.length) throw new Error(erreurs[0]);
+      await B.publierModele(doc); S.modele = await B.modele(); route();
+    }, "Modèle mis à jour pour tous les clubs");
     const fa = $("#feuille-ajout"); if (fa) { $("#fab").onclick = () => { fa.hidden = false; }; fa.onclick = (e) => { if (e.target.closest("a") || e.target.dataset.ferme !== undefined) fa.hidden = true; }; }
     const fe = $("#feuille"); if (fe) { $("#nav-plus").onclick = () => { fe.hidden = false; }; fe.onclick = (e) => { if (e.target.closest("a") || e.target.dataset.ferme !== undefined) fe.hidden = true; }; }
     const deco = $("[data-a=deco]"); if (deco) deco.onclick = () => B.deconnecter();
@@ -181,6 +189,7 @@
       if (v === "m") return vueModule(parts[3], parts[4]);
       if (v === "f") return vueFiche(parts[3], parts[4]);
       if (v === "pointage") return vuePointage();
+      if (v === "forme") return vueForme();
       if (v === "caisse") return vueCaisse();
       if (v === "membres") return vueMembres();
       if (v === "reglages") return vueReglages();
@@ -258,6 +267,7 @@
         const cv = convs.filter((x) => x.personneId === pid).map((x) => ({ ...x, e: evts.find((e) => e.id === x.evenementId) })).filter((x) => x.e && x.e.debut >= today);
         const ec = echs.filter((x) => x.personneId === pid && x.statut !== "payé" && x.statut !== "exonéré");
         html += `<div class="carte"><h3>${esc(p ? nomDoc(p) : "Ma fiche")} <small class="muted">${esc(p ? nomCat(p) : "")}</small></h3>
+          ${p && p.type === "joueur" && moduleOn("sportif") ? formeJoueurHtml(p, evts) : ""}
           ${cv.length ? `<h4>Convocations</h4>` + cv.map((x) => `<div class="ligne"><div><b>${esc(nomDoc(x.e))}</b><br><small>${dateFr(x.e.debut)} · ${esc(x.e.lieu || "")}</small></div>
             <div class="rep">${["présent", "absent", "incertain"].map((r) => `<button class="mini ${x.reponse === r ? "on" : ""}" data-conv="${x.id}" data-rep="${r}">${r}</button>`).join("")}</div></div>`).join("") : `<p class="muted">Pas de convocation à venir.</p>`}
           ${ec.length ? `<h4>À payer</h4>` + ec.map((x) => `<div class="ligne"><span>${esc(x.libelle || "Cotisation")} · avant le ${dateFr(x.du)}</span><b>${argent((x.montant || 0) - (x.paye || 0))}</b></div>`).join("") : ""}
@@ -274,6 +284,10 @@
       if (D.can("finances") && moduleOn("finances")) { const ec = await charger("echeances"); tuiles.push(["Impayés", argent(ec.filter((e) => e.statut !== "payé" && e.statut !== "exonéré").reduce((s, e) => s + (e.montant || 0) - (e.paye || 0), 0))]); }
       tuiles.push(["Événements à venir", avenir.filter((e) => D.dansPerimetre(e)).length]);
       html += `<div class="tuiles stats">${tuiles.map(([t, v]) => `<div class="tuile"><b>${esc(v)}</b><span>${esc(t)}</span></div>`).join("")}</div>`;
+      if (D.can("effectif") && moduleOn("sportif")) {
+        const lignes = lignesForme(await charger("personnes"), await blessuresLisibles());
+        if (lignes.length) html += `<div class="carte"><div class="lien-tete"><h3>Tableau du matin</h3><a class="lien" href="#/c/${S.clubId}/forme">Tout voir</a></div>${resumeForme(lignes)}${lignes.slice(0, 6).map(ligneForme).join("")}</div>`;
+      }
     }
 
     if (annonces.length) html += `<div class="carte"><h3>Annonces</h3>${annonces.map((a) => `<div class="ligne"><div><b>${esc(a.titre)}</b><br><small>${esc(a.texte || "")}</small></div></div>`).join("")}</div>`;
@@ -289,7 +303,97 @@
       if (invite) { invite.prompt(); await invite.userChoice; invite = null; inst.hidden = true; }
       else toast("Sur iPhone : bouton Partager, puis « Sur l'écran d'accueil »");
     };
+    brancherForme();
     const adh = $("#adh-go"); if (adh) adh.onclick = () => action(async () => { await B.demanderAdhesion(S.clubId, $("#adh-nom").value.slice(0, 80), $("#adh-tel").value.slice(0, 30), $("#adh-msg").value.slice(0, 300), profilPourClub($("#adh-cat").value)); S.clubId = null; route(); }, "Demande envoyée");
+  }
+
+
+  /* ---------- Forme des joueurs (comme les clubs pros) ----------
+     Le joueur répond chaque matin à 5 questions (1 à 5) et note l'effort de chaque séance (RPE 1 à 10).
+     Tout est rangé dans SA fiche (personnes.forme et personnes.charges, champs « réponse » du modèle) : aucune règle à recoller.
+     Statut : rouge = blessé ou indisponible ; orange = à surveiller (douleur, forme basse, charge en forte hausse) ; vert sinon. */
+  const QUESTIONS = [["sommeil", "Sommeil"], ["energie", "Énergie"], ["muscles", "Muscles (courbatures)"], ["moral", "Moral, stress"], ["envie", "Envie de jouer"]];
+  const VISAGES = ["😫", "😕", "😐", "🙂", "😄"];
+  const local = (dt = new Date()) => new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString();
+  const jour = (dt) => local(dt).slice(0, 10);
+  const scoreForme = (f) => (f ? Math.round((QUESTIONS.reduce((s, [k]) => s + (+f[k] || 0), 0) / QUESTIONS.length) * 10) / 10 : null);
+  const chargeJours = (p, n) => { const lim = jour(new Date(Date.now() - n * 864e5)); return Object.values(p.charges || {}).filter((c) => c && c.d > lim).reduce((s, c) => s + (c.rpe || 0) * (c.min || 0), 0); };
+  const ORDRE = { rouge: 0, orange: 1, vert: 2 };
+  function statutJoueur(p, bl) {
+    const r = [], o = [];
+    const b = (bl || []).filter((x) => x.personneId === p.id).sort((x, y) => ((x.date || "") < (y.date || "") ? 1 : -1))[0];
+    if (p.dispo === "indisponible") r.push("indisponible");
+    if (b && b.apte === "inapte") r.push("blessé" + (b.type ? " : " + b.type : ""));
+    if (p.dispo === "à surveiller") o.push("à surveiller");
+    if (b && b.apte === "reprise adaptée") o.push("reprise adaptée");
+    const f = (p.forme || {})[jour()], sc = scoreForme(f);
+    if (f && f.douleur) o.push("douleur : " + f.douleur);
+    if (sc != null && sc <= 2.5) o.push(`forme basse (${sc}/5)`);
+    const a7 = chargeJours(p, 7), moy = chargeJours(p, 28) / 4;
+    if (moy > 0 && a7 > 1.5 * moy) o.push("charge en forte hausse");
+    return { c: r.length ? "rouge" : o.length ? "orange" : "vert", raisons: [...r, ...o], score: sc, repondu: !!f, a7, moy };
+  }
+  const blessuresLisibles = async () => (lisible(pol("blessures")) ? charger("blessures") : []);
+  // ce que le joueur (ou son parent) remplit sur l'accueil
+  function formeJoueurHtml(p, evts) {
+    const f = (p.forme || {})[jour()];
+    let h = `<div class="forme-bloc"><h4>Ma forme ce matin</h4>`;
+    h += f ? `<p class="ok">Merci ! Forme du jour : ${scoreForme(f)}/5${f.douleur ? " · douleur signalée" : ""}</p>`
+      : `<form class="forme-q" data-pid="${p.id}">${QUESTIONS.map(([k, t]) => `<div class="echelle" data-q="${k}"><span>${t}</span><div>${VISAGES.map((v, i) => `<button type="button" class="vis" data-v="${i + 1}" aria-label="${i + 1}">${v}</button>`).join("")}</div></div>`).join("")}
+        <input name="douleur" placeholder="Une douleur ? Où (facultatif)" maxlength="80"><button class="btn petit">Envoyer</button></form>`;
+    const lim = jour(new Date(Date.now() - 3 * 864e5)), now = local().slice(0, 16);
+    const anoter = evts.filter((e) => ["entraînement", "match"].includes(e.type) && e.statut !== "annulé" && (e.debut || "") <= now && (e.debut || "") >= lim
+      && (!e.categorieId || e.categorieId === p.categorieId) && !(p.charges || {})[e.id]).slice(0, 3);
+    h += anoter.map((e) => `<div class="rpe" data-pid="${p.id}" data-evt="${e.id}"><span>Effort ressenti · <b>${esc(nomDoc(e))}</b> <small class="muted">${dateFr(e.debut)}</small></span>
+      <div class="rpe-btns">${Array.from({ length: 10 }, (_, i) => `<button type="button" data-rpe="${i + 1}" class="r${i + 1}">${i + 1}</button>`).join("")}</div><small class="muted">1 = très facile · 10 = effort maximal</small></div>`).join("");
+    return h + `</div>`;
+  }
+  async function ecrireSoi(pid, champ, cle, val) {
+    const p = (S.cache.personnes || []).find((x) => x.id === pid) || (await B.lire(S.clubId, "personnes", pid));
+    await B.ecrire(S.clubId, "personnes", pid, { [champ]: { ...((p && p[champ]) || {}), [cle]: val } }); vider("personnes");
+  }
+  function brancherForme() {
+    app.querySelectorAll(".echelle .vis").forEach((b) => (b.onclick = () => { b.parentNode.querySelectorAll(".vis").forEach((x) => x.classList.toggle("on", x === b)); }));
+    app.querySelectorAll(".forme-q").forEach((f) => (f.onsubmit = (e) => { e.preventDefault(); action(async () => {
+      const v = { h: local().slice(11, 16) };
+      for (const [k, t] of QUESTIONS) { const on = f.querySelector(`[data-q="${k}"] .vis.on`); if (!on) throw new Error(`répondez à « ${t} »`); v[k] = +on.dataset.v; }
+      if (f.douleur.value.trim()) v.douleur = f.douleur.value.trim().slice(0, 80);
+      await ecrireSoi(f.dataset.pid, "forme", jour(), v); route();
+    }, "Merci, forme envoyée"); }));
+    app.querySelectorAll(".rpe [data-rpe]").forEach((b) => (b.onclick = () => action(async () => {
+      const r = b.closest(".rpe"), e = (S.cache.evenements || []).find((x) => x.id === r.dataset.evt) || {};
+      const min = e.debut && e.fin ? Math.max(15, Math.min(240, Math.round((new Date(e.fin) - new Date(e.debut)) / 60000))) : 90;
+      await ecrireSoi(r.dataset.pid, "charges", r.dataset.evt, { d: (e.debut || jour()).slice(0, 10), rpe: +b.dataset.rpe, min }); route();
+    }, "Effort enregistré")));
+  }
+  const ligneForme = ({ p, s }) => `<a class="ligne forme-ligne" href="#/c/${S.clubId}/f/personnes/${p.id}"><span class="dot ${s.c}"></span>
+    <div class="evt-txt"><b>${esc(nomDoc(p))}</b><small>${esc(s.raisons.join(" · ") || (s.repondu ? "en forme" : "pas encore répondu ce matin"))}</small></div>
+    <span class="score ${s.repondu ? "" : "vide"}">${s.score ?? "–"}</span></a>`;
+  function resumeForme(lignes) {
+    const n = (c) => lignes.filter((l) => l.s.c === c).length;
+    return `<div class="resume-forme"><span><b>${lignes.filter((l) => l.s.repondu).length}/${lignes.length}</b> ont répondu</span><span><i class="dot rouge"></i>${n("rouge")}</span><span><i class="dot orange"></i>${n("orange")}</span><span><i class="dot vert"></i>${n("vert")}</span></div>`;
+  }
+  const lignesForme = (ps, bl) => ps.filter((p) => p.type === "joueur" && p.statut !== "parti").map((p) => ({ p, s: statutJoueur(p, bl) }))
+    .sort((a, b) => ORDRE[a.s.c] - ORDRE[b.s.c] || (a.s.score ?? 9) - (b.s.score ?? 9) || nomDoc(a.p).localeCompare(nomDoc(b.p)));
+  // page complète : tous les joueurs du périmètre, filtrables par catégorie
+  async function vueForme() {
+    const [ps, bl] = await Promise.all([charger("personnes"), blessuresLisibles()]);
+    const f = JSON.parse(sessionStorage.getItem("filtre") || "{}");
+    const lignes = lignesForme(ps.filter((p) => !f.cat || p.categorieId === f.cat), bl);
+    coquille(`<h2>Forme des joueurs</h2><p class="muted">Ce matin, ${new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}. Rouge : ne joue pas. Orange : à voir avant la séance.</p>
+      <div class="barre"><select id="fo-cat"><option value="">Toutes catégories</option>${(S.cache.categories || []).map((c) => `<option value="${c.id}" ${f.cat === c.id ? "selected" : ""}>${esc(nomCat(c) || c.nom)}</option>`).join("")}</select></div>
+      <div class="carte">${resumeForme(lignes)}${lignes.map(ligneForme).join("") || `<p class="muted">Aucun joueur dans votre périmètre.</p>`}</div>
+      <p class="muted">Le chiffre à droite est la forme du jour sur 5 (moyenne de sommeil, énergie, muscles, moral, envie).</p>`, "Forme");
+    $("#fo-cat").onchange = (e) => { sessionStorage.setItem("filtre", JSON.stringify({ ...f, cat: e.target.value })); vueForme(); };
+  }
+  // sur la fiche du joueur : statut, 7 derniers matins, charge
+  async function ficheFormeHtml(p) {
+    const s = statutJoueur(p, await blessuresLisibles());
+    const jours = Array.from({ length: 7 }, (_, i) => jour(new Date(Date.now() - (6 - i) * 864e5)));
+    return `<div class="carte"><div class="lien-tete"><h3>Forme</h3><span class="statut ${s.c}">${{ rouge: "Indisponible", orange: "À surveiller", vert: "Disponible" }[s.c]}</span></div>
+      ${s.raisons.length ? `<p>${esc(s.raisons.join(" · "))}</p>` : ""}
+      <div class="barres">${jours.map((j) => { const sc = scoreForme((p.forme || {})[j]); return `<div><i style="height:${sc ? sc * 20 : 4}%" class="${sc == null ? "vide" : sc <= 2.5 ? "bas" : ""}"></i><small>${new Date(j).toLocaleDateString("fr-FR", { weekday: "narrow" })}</small></div>`; }).join("")}</div>
+      <p class="muted">Charge 7 jours : <b>${s.a7}</b>${s.moy ? ` · moyenne des 4 dernières semaines : ${Math.round(s.moy)}` : ""} (effort × minutes)</p></div>`;
   }
 
   /* ---------- Module : onglets des collections lisibles, puis liste filtrable ---------- */
@@ -382,12 +486,13 @@
     const secs = (S.cache.sections || []).filter((s) => total && (D.president() || D.perimetre().includes("*") || D.perimetre().includes(s.id) || (S.cache.categories || []).some((c) => c.sectionId === s.id && D.perimetre().includes(c.id))));
     const cats = (S.cache.categories || []);
     const liens = nouveau ? "" : await liensHtml(colId, d, id);
-    coquille(`<form class="carte fiche" id="fiche">
+    const forme = !nouveau && colId === "personnes" && d.type === "joueur" && moduleOn("sportif") ? await ficheFormeHtml({ ...d, id }) : "";
+    coquille(`${forme}<form class="carte fiche" id="fiche">
       <div class="fiche-tete"><a href="javascript:history.back()" class="lien">← Retour</a><h2>${esc(nouveau ? "Nouveau : " + col.nom : nomDoc(d))}</h2></div>
       ${col.categorie ? `<div class="grille2">
         <label>Section<select name="sectionId" ${total ? "" : "disabled"}><option value="">(tout le club)</option>${(total ? secs : S.cache.sections || []).map((s) => `<option value="${s.id}" ${s.id === d.sectionId ? "selected" : ""}>${esc(s.nom)}</option>`).join("")}</select></label>
         <label>Catégorie<select name="categorieId" ${total ? "" : "disabled"}><option value="">(toute la section)</option>${cats.map((c) => `<option value="${c.id}" data-sec="${c.sectionId}" ${c.id === d.categorieId ? "selected" : ""}>${esc(c.nom)}</option>`).join("")}</select></label></div>` : ""}
-      ${col.champs.filter((ch) => !ch.cache || total).map((ch) => `<label class="${ch.type === "texteLong" || ch.type === "refs" || ch.type === "map" ? "large" : ""}">${esc(ch.label)}${ch.requis ? " *" : ""}${rep.includes(ch.id) ? ` <small class="ok">modifiable par vous</small>` : ""}
+      ${col.champs.filter((ch) => !ch.systeme && (!ch.cache || total)).map((ch) => `<label class="${ch.type === "texteLong" || ch.type === "refs" || ch.type === "map" ? "large" : ""}">${esc(ch.label)}${ch.requis ? " *" : ""}${rep.includes(ch.id) ? ` <small class="ok">modifiable par vous</small>` : ""}
         ${champHtml(ch, d[ch.id], total || rep.includes(ch.id), d)}</label>`).join("")}
       <div class="actions">
         ${total || rep.length ? `<button class="btn" type="submit">Enregistrer</button>` : `<span class="muted">Lecture seule pour votre profil.</span>`}
@@ -399,7 +504,7 @@
     if (secSel && total) { const filtre = () => [...catSel.options].forEach((o) => (o.hidden = !!o.value && !!secSel.value && o.dataset.sec !== secSel.value)); secSel.onchange = () => { catSel.value = ""; filtre(); }; filtre(); }
     form.onsubmit = (e) => { e.preventDefault(); action(async () => {
       const data = {};
-      const editables = total ? col.champs : col.champs.filter((c) => rep.includes(c.id));
+      const editables = (total ? col.champs : col.champs.filter((c) => rep.includes(c.id))).filter((c) => !c.systeme);
       for (const ch of editables) { const v = lireChamp(form, ch); if (v !== undefined) data[ch.id] = v; if (ch.requis && (v === "" || v === null || v === undefined)) throw new Error(`« ${ch.label} » est obligatoire`); }
       if (total && col.categorie) {
         data.sectionId = secSel.value; data.categorieId = catSel.value;
@@ -833,6 +938,7 @@
       await B.init();
       [S.modele, S.sports] = await Promise.all([B.modele(), B.sports()]);
       S.connexion = { ...(P.CONNEXION || {}), ...(await B.reglagesPlateforme()) };
+      if (B.estAdmin()) S.versionFichier = await fetch("modele/modules.json", { cache: "no-cache" }).then((x) => x.json()).then((m) => m.version || 1).catch(() => 0);
       await route();
     } catch (e) { console.error(e); app.innerHTML = `<div class="carte erreur">Impossible de démarrer : ${esc(e.message)}</div>`; }
     if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js");

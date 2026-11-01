@@ -230,3 +230,34 @@ details[open] summary::after { transform: rotate(90deg); }
 .lien-tete b { flex: 1; }
 .compte-puce { font-size: 12px; font-weight: 700; min-width: 24px; text-align: center; padding: 2px 8px; border-radius: 99px; background: var(--club-soft); color: var(--club); }
 .lien-bloc .ligne { padding: 8px 0; border-bottom: 0; }
+/* Forme des joueurs */
+.forme-bloc { margin-top: 6px; }
+.echelle { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.echelle > span { font-size: 14px; font-weight: 600; }
+.echelle > div { display: flex; gap: 4px; }
+.vis { width: 38px; height: 38px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font-size: 20px; line-height: 1; cursor: pointer; filter: grayscale(1); opacity: .6; padding: 0; }
+.vis.on { filter: none; opacity: 1; border-color: var(--club); background: var(--club-soft); transform: scale(1.08); }
+.forme-q input { margin-top: 12px; }
+@media (max-width: 380px) { .echelle { flex-direction: column; align-items: flex-start; } }
+.rpe { padding: 10px 0; border-top: 1px solid var(--line); margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.rpe-btns { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.rpe-btns button { height: 36px; border: 0; border-radius: 9px; font: 700 13px var(--font); cursor: pointer; color: #fff; }
+.rpe-btns .r1, .rpe-btns .r2 { background: #3BA55C; } .rpe-btns .r3, .rpe-btns .r4 { background: #7BBF3A; }
+.rpe-btns .r5, .rpe-btns .r6 { background: #E3B11C; color: #222; } .rpe-btns .r7, .rpe-btns .r8 { background: #E9792B; }
+.rpe-btns .r9, .rpe-btns .r10 { background: #D23B2F; }
+.dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; }
+.dot.vert { background: #22A35A; } .dot.orange { background: #F09A1A; } .dot.rouge { background: #D9362B; }
+.resume-forme { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13.5px; color: var(--muted); padding: 2px 0 8px; border-bottom: 1px solid var(--line); }
+.resume-forme span { display: inline-flex; align-items: center; gap: 5px; }
+.resume-forme span:first-child { margin-right: auto; }
+.forme-ligne { justify-content: flex-start; }
+.score { flex: none; min-width: 38px; text-align: center; font-weight: 800; font-size: 15px; padding: 4px 6px; border-radius: 10px; background: var(--surface-2); }
+.score.vide { color: var(--muted); font-weight: 600; }
+.statut { font-size: 12.5px; font-weight: 700; padding: 4px 11px; border-radius: 99px; }
+.statut.vert { background: #22A35A22; color: #17864A; } .statut.orange { background: #F09A1A26; color: #A86200; } .statut.rouge { background: #D9362B22; color: #C0281E; }
+.barres { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 110px; align-items: end; margin: 10px 0; }
+.barres div { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.barres i { width: 100%; max-width: 28px; border-radius: 7px; background: var(--club); }
+.barres i.bas { background: #F09A1A; } .barres i.vide { background: var(--line); }
+.barres small { font-size: 11px; text-transform: uppercase; }
+.maj-modele { display: flex; gap: 12px; align-items: center; justify-content: space-between; }

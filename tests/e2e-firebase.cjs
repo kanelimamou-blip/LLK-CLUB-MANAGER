@@ -96,6 +96,16 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   await codeLogin("76 555 44 33", "135790", false);
   await page.goto(U + "#/c/test-fc/pointage"); await page.waitForSelector("#pt-code");
   await page.fill("#pt-code", code); await page.click("#pt-go"); console.log("pointage joueur:", await toast());
+  // forme du matin : le joueur l'écrit dans sa propre fiche (champs réponse du modèle, sans règle dédiée)
+  await page.goto(U + "#/c/test-fc"); await page.waitForSelector(".forme-q");
+  for (const q of ["sommeil", "energie", "muscles", "moral", "envie"]) await page.click(`[data-q=${q}] [data-v="2"]`);
+  await page.fill(".forme-q [name=douleur]", "genou"); await page.click(".forme-q button.btn"); console.log("forme du matin:", await toast());
+  console.log("forme relue:", await page.$eval(".forme-bloc", (e) => e.innerText.replace(/\s+/g, " ").slice(0, 80)));
+  await deco();
+  // le président (droit effectif) voit le joueur en orange sur le tableau du matin
+  await codeLogin("78 111 22 33", "424242", false);
+  await page.goto(U + "#/c/test-fc/forme"); await page.waitForSelector(".resume-forme");
+  console.log("tableau du matin:", await page.$eval(".forme-ligne", (e) => e.className + " | " + e.innerText.replace(/\s+/g, " ")));
   await deco();
   // Connexion par SMS (l'émulateur donne le code)
   await codeLogin("77 000 00 01", "111111", false);
