@@ -76,8 +76,8 @@
           ${club && club.logo ? `<img src="${esc(club.logo)}" alt="">` : `<img src="icons/logo.svg" alt="">`}
           <span><b>${esc(club ? club.nomCourt || club.nom : P.nom)}</b><small>${esc(titre || (club ? club.slogan || "" : P.slogan))}</small></span>
         </a>
-        <div class="compte">${B.mode === "firebase" ? (B.uid ? `<a class="lien" href="#/profil">Mon profil</a><button class="lien" data-a="deco">Déconnexion</button>` : `<a class="btn petit" href="#/connexion">Connexion</a>`) : `<a class="lien" href="#/profil">Profil</a>`}
-          <span class="badge">${esc(libelleRole())}</span></div>
+        <div class="compte">${B.mode === "firebase" ? (B.uid ? `<a class="profil-btn" href="#/profil" title="Mon profil">👤</a>` : `<a class="btn petit" href="#/connexion">Connexion</a>`) : `<a class="lien" href="#/profil">Profil</a>`}
+          ${B.estAdmin() ? `<a class="badge" href="#/admin">${esc(libelleRole())}</a>` : `<span class="badge">${esc(libelleRole())}</span>`}</div>
       </header>
       <div class="cadre">
         <nav class="nav">${nav.map((n) => `<a href="${n.h}" class="${h === n.h || (n.h !== "#/c/" + S.clubId && h.startsWith(n.h + "/")) ? "actif" : ""}"><span>${n.i}</span>${esc(n.t)}</a>`).join("")}</nav>
@@ -700,7 +700,7 @@
     coquille(`<form class="carte fiche" id="profil"><div class="fiche-tete"><h2>${premiere ? "Bienvenue ! Complétez votre profil" : "Mon profil"}</h2>
         <p class="muted">Téléphone : <b>${esc(c.tel || "—")}</b>${B.uid ? ` · identifiant : <code>${esc(B.uid)}</code>` : ""}</p></div>
       ${champs.map((ch) => `<label class="${ch.type === "texteLong" ? "large" : ""}" data-champ="${ch.id}">${esc(ch.label)}<span class="req"></span>${champHtml(ch, c[ch.id], true, {})}</label>`).join("")}
-      <div class="actions"><button class="btn">${premiere ? "Continuer" : "Enregistrer"}</button></div></form>`, "Mon profil");
+      <div class="actions"><button class="btn">${premiere ? "Continuer" : "Enregistrer"}</button>${B.mode === "firebase" ? `<button type="button" class="btn clair" data-a="deco">Déconnexion</button>` : ""}</div></form>`, "Mon profil");
     const f = $("#profil");
     const qui = () => (f.elements.profil ? f.elements.profil.value : "");
     const visible = (ch) => !ch.pour || ch.pour.includes(qui());

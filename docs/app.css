@@ -121,3 +121,7 @@ details summary { cursor: pointer; margin: 6px 0; }
 .mini-tuiles .tuile b { font-size: 18px; }
 .profil-det { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px; margin: 6px 0 10px; }
 .profil-det span { display: flex; flex-direction: column; }
+.marque b, .marque small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compte { flex-shrink: 0; }
+.profil-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #ffffff26; text-decoration: none; font-size: 18px; }
+@media (max-width: 420px) { .top .badge { max-width: 120px; overflow: hidden; text-overflow: ellipsis; } }

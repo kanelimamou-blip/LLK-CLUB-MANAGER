@@ -18,7 +18,7 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   page.on("pageerror", (e) => errs.push("pageerror " + e.message));
   page.on("console", (m) => m.type() === "error" && !/PERMISSION_DENIED|permission|recaptcha/i.test(m.text()) && errs.push("console " + m.text().slice(0, 200)));
   const toast = async () => { const t = await page.waitForSelector(".toast", { timeout: 5000 }).then((e) => e.textContent()).catch(() => "-"); await page.waitForTimeout(2700); return t; };
-  const deco = async () => { await page.goto(U + "#/c/x"); await page.click("[data-a=deco]"); await page.waitForTimeout(1500); };
+  const deco = async () => { await page.goto(U + "#/profil"); await page.click("[data-a=deco]"); await page.waitForTimeout(1500); };
   const codeLogin = async (tel, pin, premiere) => {
     await page.goto(U + "#/connexion"); await page.waitForSelector("#cx-tel");
     await page.fill("#cx-tel", tel); await page.fill("#cx-pin", pin); await page.click(premiere ? "#cx-up" : "#cx-in"); await page.waitForTimeout(2500);
