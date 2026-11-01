@@ -103,6 +103,7 @@
     async reglagesPlateforme() { return JSON.parse(localStorage.getItem(CLE + "-plateforme") || "{}"); },
     async majReglagesPlateforme(data) { localStorage.setItem(CLE + "-plateforme", JSON.stringify({ ...(await Demo.reglagesPlateforme()), ...data })); },
     async demanderAdhesion() { throw new Error("En démo, changez de profil avec la barre du haut."); },
+    async inscriptionSimple() { throw new Error("En démo, changez de profil avec la barre du haut."); },
   };
 
   /* ================= Mode Firebase ================= */
@@ -146,6 +147,13 @@
     async connexionCode(tel, code, creer) {
       const email = tel.replace(/\D/g, "") + "@tel.llk.app";
       await (creer ? auth.createUserWithEmailAndPassword(email, code) : auth.signInWithEmailAndPassword(email, code));
+      location.reload();
+    },
+    // Inscription simple (option du club) : compte propre à ce téléphone, sans code ; nom et numéro déclarés, le club valide
+    async inscriptionSimple(tel, prenom, nom, profil) {
+      try { if (!auth.currentUser) await auth.signInAnonymously(); }
+      catch (e) { throw new Error(/operation-not-allowed|admin-restricted/.test(e.code || "") ? "inscription simple pas encore activée dans Firebase (Authentication > Anonyme)" : e.message); }
+      await db.doc("users/" + auth.currentUser.uid).set({ tel, created: ts(), lastSeen: ts(), active: true, clubs: [], complet: true, prenom, nom, profil });
       location.reload();
     },
     async reglagesPlateforme() { try { const s = await db.doc("plateforme/reglages").get(); return s.exists ? s.data() : {}; } catch { return {}; } },

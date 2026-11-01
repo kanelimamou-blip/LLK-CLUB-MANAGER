@@ -23,5 +23,16 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   console.log("retour:", p.url());
   await p.waitForSelector("#rj-go"); await p.selectOption("#rj-type", "supporter"); await p.click("#rj-go"); console.log("demande:", await toast());
   await p.waitForSelector(".rejoindre"); console.log("étape 4:", await p.$eval(".etape-r:nth-child(4) h3", (e) => e.textContent));
+  // inscription simple (option du club) : le président l'active, un nouveau venu entre juste nom + numéro
+  await p.evaluate(() => firebase.auth().signOut()); await p.waitForTimeout(800);
+  await p.evaluate(() => firebase.auth().signInWithEmailAndPassword("221781112233@tel.llk.app", "424242")); await p.reload(); await p.waitForTimeout(2500);
+  await p.goto(U + "#/c/test-fc/reglages"); await p.waitForSelector("#rg-club"); await p.check("#rg-club [name=simple]"); await p.click("#rg-club > button.btn"); console.log("option simple:", await toast());
+  await p.evaluate(() => firebase.auth().signOut()); await p.waitForTimeout(800);
+  await p.goto(U + "#/c/test-fc/rejoindre"); await p.reload(); await p.waitForSelector("#rs-go");
+  await p.fill("#rs-prenom", "Modou"); await p.fill("#rs-nom", "Sène"); await p.fill("#rs-tel", "76 222 33 44"); await p.selectOption("#rs-type", "supporter");
+  await p.click("#rs-go"); await p.waitForTimeout(3500); await p.waitForSelector(".rejoindre");
+  console.log("après inscription simple:", p.url(), "|", await p.$$eval(".etape-r", (l) => l.map((e) => e.className.replace("etape-r", "").trim() || "à venir").join(" | ")));
+  await p.click("#rj-go"); console.log("demande simple:", await toast());
+  console.log("étape 4:", await p.$eval(".etape-r:nth-child(4) h3", (e) => e.textContent));
   console.log("ERREURS:", errs.length ? errs : "aucune"); await b.close();
 })();

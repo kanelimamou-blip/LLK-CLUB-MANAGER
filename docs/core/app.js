@@ -203,6 +203,7 @@
     D.regler({ uid: B.uid === "visiteur" ? null : B.uid, admin: B.estAdmin(), membre: S.membre, R: S.R });
     S.caisseActive = !!((await lireCaisse()) || {}).actif;
     S.apparence = (await B.reglage(id, "apparence")) || {};
+    S.acces = (await B.reglage(id, "acces")) || {};
     const coul = S.club.couleurs || {};
     appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
     iconeClub(S.club);
@@ -715,13 +716,17 @@
     const html = `<div class="rj-tete">${c.logo ? `<img src="${esc(c.logo)}" alt="">` : ""}<span class="sur">Invitation</span><h2>Rejoindre <em>${esc(c.nom)}</em></h2><p>4 étapes, 2 minutes. Gratuit.</p></div>
       <div class="carte rejoindre">
       ${etape(1, e1, "Installer l'appli sur mon téléphone", installTxt, !e1)}
-      ${etape(2, compte, compte ? `Mon compte : ${esc(nomCompte())}` : "Créer mon compte", `<p class="muted">Votre numéro + un code secret de 6 chiffres que vous choisissez. Notez-le bien.</p>
+      ${etape(2, compte, compte ? `Mon compte : ${esc(nomCompte())}` : "Créer mon compte", (S.acces || {}).simple ? `<p class="muted">Juste votre nom et votre numéro. Le club vérifie ensuite votre demande.</p>
+        <div class="grille2"><label>Prénom<input id="rs-prenom" autocomplete="given-name"></label><label>Nom<input id="rs-nom" autocomplete="family-name"></label></div>
+        <label>Mon numéro<input id="rs-tel" type="tel" inputmode="tel" placeholder="77 123 45 67" autocomplete="tel"></label>
+        <label>Je suis<select id="rs-type">${["supporter", "joueur", "dirigeant", "bénévole", "staff technique", "parent de joueur"].map((t) => `<option>${t}</option>`).join("")}</select></label>
+        <button class="btn" id="rs-go">C'est parti</button>` : `<p class="muted">Votre numéro + un code secret de 6 chiffres que vous choisissez. Notez-le bien.</p>
         <label>Mon numéro<input id="cx-tel" type="tel" inputmode="tel" placeholder="77 123 45 67" autocomplete="tel"></label>
         <label>Mon code secret (6 chiffres)<input id="cx-pin" type="password" inputmode="numeric" maxlength="6" class="gros" placeholder="······"></label>
         <div class="actions"><button class="btn" id="cx-up">Créer mon compte</button><button class="btn clair" id="cx-in">J'ai déjà un compte</button></div>`, e1 && !compte)}
       ${etape(3, compte && profilOk, "Mon profil", `<a class="btn" href="#/profil">Compléter mon profil</a>`, e1 && compte && !profilOk)}
       ${etape(4, etat !== "non", etat === "membre" ? "Je suis membre du club ✓" : etat === "attente" ? "Demande envoyée : le club la valide" : "Demander à rejoindre le club", `
-        <label>Je suis<select id="rj-type">${["supporter", "joueur", "dirigeant", "staff technique"].map((t) => `<option ${((B.compte || {}).profil || "supporter") === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <label>Je suis<select id="rj-type">${["supporter", "joueur", "dirigeant", "bénévole", "staff technique", "parent de joueur"].map((t) => `<option ${((B.compte || {}).profil || "supporter") === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
         ${(S.cache.categories || []).length ? `<label>Catégorie<select id="rj-cat"><option value="">(je ne sais pas)</option>${(S.cache.categories || []).map((x) => `<option value="${x.id}">${esc(nomCat(x))}</option>`).join("")}</select></label>` : ""}
         <button class="btn" id="rj-go">Envoyer ma demande</button>`, e1 && compte && profilOk && etat === "non")}
       ${etat === "membre" ? `<div class="actions">${S.caisseActive ? `<a class="btn accent" href="#/c/${S.clubId}/cotiser">Cotiser maintenant</a>` : ""}<a class="btn clair" href="#/c/${S.clubId}">Aller à l'accueil du club</a></div>`
@@ -739,6 +744,11 @@
     const msg = (e) => ({ "auth/invalid-credential": "numéro ou code secret faux", "auth/wrong-password": "code secret faux", "auth/user-not-found": "numéro inconnu : touchez « Créer mon compte »", "auth/email-already-in-use": "ce numéro a déjà un compte : touchez « J'ai déjà un compte »", "auth/too-many-requests": "trop d'essais, réessayez plus tard" })[e.code] || e.message;
     const essai = (fn) => action(async () => { if (B.mode === "demo") throw new Error("en démo, changez de profil avec la barre du haut"); try { await fn(); } catch (e) { throw new Error(msg(e)); } });
     if ($("#cx-up")) { $("#cx-up").onclick = () => essai(() => B.connexionCode(tel(), pin(), true)); $("#cx-in").onclick = () => essai(() => B.connexionCode(tel(), pin(), false)); }
+    const rs = $("#rs-go"); if (rs) rs.onclick = () => action(async () => {
+      const prenom = $("#rs-prenom").value.trim().slice(0, 40), nom = $("#rs-nom").value.trim().slice(0, 40), t = telComplet($("#rs-tel").value);
+      if (!prenom || !nom) throw new Error("prénom et nom"); if (t.replace(/\D/g, "").length < 9) throw new Error("numéro incomplet");
+      await B.inscriptionSimple(t, prenom, nom, $("#rs-type").value);
+    });
     const go = $("#rj-go"); if (go) go.onclick = () => action(async () => {
       const t = $("#rj-type").value; if (B.mode === "firebase" && (B.compte || {}).profil !== t) await B.majCompte({ profil: t });
       await B.demanderAdhesion(S.clubId, nomCompte().slice(0, 80), ((B.compte || {}).tel || "").slice(0, 30), "", { ...profilPourClub($("#rj-cat") ? $("#rj-cat").value : ""), profil: t });
@@ -1101,6 +1111,7 @@
       ${[["nom", "Nom"], ["nomCourt", "Nom court"], ["slogan", "Slogan"], ["ville", "Ville"], ["tel", "Téléphone"], ["whatsapp", "WhatsApp (221…)"], ["devise", "Devise"]].map(([k, l]) => `<label>${l}<input name="${k}" value="${esc(c[k] || "")}"></label>`).join("")}
       <label>Couleur principale<input type="color" name="principale" value="${esc((c.couleurs || {}).principale || "#0B5D3B")}"></label>
       <label>Couleur d'accent<input type="color" name="accent" value="${esc((c.couleurs || {}).accent || "#F2B705")}"></label></div>
+      <label class="case large"><input type="checkbox" name="simple" ${(S.acces || {}).simple ? "checked" : ""}> Inscription simple pour ce club : nom + téléphone, sans code secret (le club valide chaque demande)</label>
       <label class="large">Photo de couverture (affiche, photo d'équipe : en fond de l'accueil)${champHtml({ id: "couverture", type: "image" }, (S.apparence || {}).couverture || "", true, {})}</label>
       <p class="muted">Modules souscrits : ${esc((c.modules || []).join(", ") || "aucun")} (gérés par l'admin de la plateforme).</p><button class="btn">Enregistrer</button></form>`;
     if (D.president()) html += `<form class="carte" id="rg-roles"><h3>Rôles du club</h3><p class="muted">Créez vos propres rôles (niveau 1 à 99). Un membre ne donne que des rôles sous son niveau.</p>
@@ -1129,6 +1140,7 @@
       const data = Object.fromEntries(["nom", "nomCourt", "slogan", "ville", "tel", "whatsapp", "logo", "devise"].map((k) => [k, fc[k].value.trim()]));
       data.couleurs = { principale: fc.principale.value, accent: fc.accent.value };
       await B.majClub(S.clubId, data);
+      if (fc.simple.checked !== !!(S.acces || {}).simple) await B.ecrireReglage(S.clubId, "acces", { simple: fc.simple.checked });
       if (fc.couverture.value !== ((S.apparence || {}).couverture || "")) await B.ecrireReglage(S.clubId, "apparence", { couverture: fc.couverture.value });
       S.clubId = null; route();
     }, "Club mis à jour"); };
