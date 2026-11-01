@@ -1,4 +1,4 @@
-# Club Manager : base commune de gestion de clubs multisport
+# LLK Club Manager : base commune de gestion de clubs multisport
 
 Une seule appli (ordinateur et téléphone) pour gérer des centaines de clubs : football d'abord, puis basket, handball,
 volley, lutte, athlétisme… Par club : sections, catégories, joueurs et staff, licences, planning, convocations,
