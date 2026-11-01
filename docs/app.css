@@ -1,7 +1,7 @@
 /* Une seule mise en page pour téléphone et ordinateur : barre d'onglets en bas sur téléphone, menu à gauche dès 900 px.
    Les couleurs du club (--club, --accent) viennent de sa fiche (Réglages). */
 :root {
-  --club: #0B5D3B; --accent: #F2B705;
+  --club: #0B5D3B; --accent: #F2B705; --on-club: #fff; --on-accent: #111;
   --bg: #F3F5F4; --surface: #fff; --surface-2: #E9EEEB; --ink: #111A15; --muted: #5B6A61; --line: #D8E0DB;
   --ok: #1B8A4C; --bad: #C2362F; --warn: #B07A00;
   --r: 14px; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px rgba(0,0,0,.05);
@@ -20,14 +20,14 @@ code, .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 
 
 .demo { background: #FFF4CC; color: #4A3B00; padding: 6px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .demo select { width: auto; padding: 4px 8px; margin: 0; }
-.top { position: sticky; top: 0; z-index: 5; background: var(--club); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; gap: 10px; }
+.top { position: sticky; top: 0; z-index: 5; background: var(--club); color: var(--on-club); display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; gap: 10px; }
 .marque { display: flex; align-items: center; gap: 10px; text-decoration: none; min-width: 0; }
 .marque img { width: 36px; height: 36px; border-radius: 10px; background: #fff2; object-fit: cover; }
 .marque span { display: flex; flex-direction: column; min-width: 0; }
-.marque small { color: #ffffffb3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.marque small { color: var(--on-club); opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compte { display: flex; gap: 8px; align-items: center; }
-.top .badge { background: var(--accent); color: #1a1400; }
-.top .lien { color: #fff; }
+.top .badge { background: var(--accent); color: var(--on-accent); }
+.top .lien { color: var(--on-club); }
 
 .cadre { display: block; }
 .main { max-width: 980px; margin: 0 auto; padding: 14px 14px 96px; }
@@ -48,7 +48,7 @@ code, .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 
 .carte.info { border-color: var(--accent); }
 .carte.centre { text-align: center; }
 .erreur { color: var(--bad); white-space: pre-wrap; }
-.hero { background: linear-gradient(135deg, var(--club), color-mix(in srgb, var(--club) 60%, #000)); color: #fff; border-radius: var(--r); padding: 22px 18px; margin-bottom: 12px; }
+.hero { background: linear-gradient(135deg, var(--club), color-mix(in srgb, var(--club) 60%, #000)); color: #fff; border-bottom: 4px solid var(--accent); border-radius: var(--r); padding: 22px 18px; margin-bottom: 12px; }
 .hero h1 { font-size: 26px; }
 .hero p { color: #ffffffd0; margin: 0 0 10px; }
 .puces { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -65,12 +65,12 @@ code, .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 
 .tuile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; }
 .tuile b { font-size: 22px; color: var(--club); }
 
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--club); color: #fff; border: 0; border-radius: 10px; padding: 10px 16px; font: 600 14.5px var(--font); cursor: pointer; text-decoration: none; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--club); color: var(--on-club); border: 0; border-radius: 10px; padding: 10px 16px; font: 600 14.5px var(--font); cursor: pointer; text-decoration: none; }
 .btn.petit { padding: 7px 12px; font-size: 13.5px; }
 .btn.clair { background: var(--surface-2); color: var(--ink); }
 .btn.danger { background: var(--bad); }
 .mini { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 5px 11px; font: 13px var(--font); cursor: pointer; color: var(--ink); }
-.mini.on { background: var(--club); color: #fff; border-color: var(--club); }
+.mini.on { background: var(--club); color: var(--on-club); border-color: var(--club); }
 .lien { background: none; border: 0; color: var(--club); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
 
 input, select, textarea { width: 100%; font: 15px var(--font); padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); margin: 4px 0 8px; }
@@ -90,7 +90,7 @@ details summary { cursor: pointer; margin: 6px 0; }
 
 .onglets { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; padding-bottom: 2px; }
 .onglets a { white-space: nowrap; padding: 7px 13px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; font-size: 14px; }
-.onglets a.actif { background: var(--club); color: #fff; border-color: var(--club); }
+.onglets a.actif { background: var(--club); color: var(--on-club); border-color: var(--club); }
 .barre { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
 .barre select, .barre input { flex: 1 1 150px; margin: 0; }
 
@@ -107,3 +107,7 @@ details summary { cursor: pointer; margin: 6px 0; }
   .tr span:not(:first-child):not(:empty)::before { content: attr(data-l) " : "; color: var(--muted); font-size: 12.5px; }
 }
 .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 20; font-size: 14px; max-width: 90vw; }
+.logo-zone { display: flex; gap: 14px; align-items: center; margin-bottom: 10px; }
+.logo-zone img { width: 84px; height: 84px; object-fit: contain; border-radius: 16px; background: var(--surface-2); padding: 6px; }
+.palette { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+.pastille { width: 42px; height: 42px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }

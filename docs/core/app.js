@@ -110,8 +110,7 @@
     S.R = await B.roles(id);
     D.regler({ uid: B.uid === "visiteur" ? null : B.uid, admin: B.estAdmin(), membre: S.membre, R: S.R });
     const coul = S.club.couleurs || {};
-    document.documentElement.style.setProperty("--club", coul.principale || "#0B5D3B");
-    document.documentElement.style.setProperty("--accent", coul.accent || "#F2B705");
+    appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
     document.title = S.club.nom;
   }
   async function route() {
@@ -138,7 +137,7 @@
     } catch (e) { console.error(e); coquille(`<div class="carte erreur">Erreur : ${esc(e.message)}</div>`); }
   }
   window.addEventListener("hashchange", route);
-  const toast = (t) => { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); };
+  const toast = (t) => { document.querySelectorAll(".toast").forEach((x) => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); };
   async function action(fn, ok) { try { await fn(); if (ok) toast(ok); } catch (e) { console.error(e); toast("Refusé : " + (e.message || e)); } }
 
   /* ---------- Accueil : vitrine + espace personnel selon le profil ---------- */
@@ -397,12 +396,63 @@
     }, "Membre mis à jour"); }));
   }
 
+  /* ---------- Couleurs du club : appliquées à toute l'appli, texte clair ou foncé selon la couleur ---------- */
+  const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const rgbHex = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+  const luminance = (h) => { const [r, g, b] = hexRgb(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  function appliquerCouleurs(principale = "#0B5D3B", accent = "#F2B705") {
+    const st = document.documentElement.style;
+    st.setProperty("--club", principale); st.setProperty("--accent", accent);
+    st.setProperty("--on-club", luminance(principale) > 0.45 ? "#111" : "#fff");
+    st.setProperty("--on-accent", luminance(accent) > 0.45 ? "#111" : "#fff");
+    let m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = principale;
+  }
+  // Logo chargé depuis le téléphone : réduit à 256 px (léger, stocké dans la fiche du club) et couleurs dominantes extraites
+  function lireLogo(fichier) {
+    return new Promise((ok, ko) => {
+      const img = new Image();
+      img.onload = () => {
+        const t = 256, k = Math.min(1, t / Math.max(img.width, img.height));
+        const cv = document.createElement("canvas"); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0, cv.width, cv.height);
+        let url = cv.toDataURL("image/png");
+        if (url.length > 180000) url = cv.toDataURL("image/webp", 0.85);
+        if (url.length > 300000) url = cv.toDataURL("image/jpeg", 0.8);
+        // couleurs : petite image, regroupement par teinte proche, on écarte transparent, blanc et gris très clairs
+        const p = document.createElement("canvas"); p.width = p.height = 64;
+        const px = p.getContext("2d"); px.drawImage(img, 0, 0, 64, 64);
+        const data = px.getImageData(0, 0, 64, 64).data, seaux = new Map();
+        for (let i = 0; i < data.length; i += 4) {
+          const [r, g, b, a] = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+          if (a < 128 || Math.min(r, g, b) > 225) continue;
+          const cle = (r >> 5) + "," + (g >> 5) + "," + (b >> 5);
+          const s = seaux.get(cle) || { n: 0, r: 0, g: 0, b: 0 }; s.n++; s.r += r; s.g += g; s.b += b; seaux.set(cle, s);
+        }
+        const tri = [...seaux.values()].sort((a, b) => b.n - a.n).map((s) => [s.r / s.n, s.g / s.n, s.b / s.n]);
+        const choisies = [];
+        for (const c of tri) { if (choisies.every((d) => Math.hypot(c[0] - d[0], c[1] - d[1], c[2] - d[2]) > 70)) choisies.push(c); if (choisies.length === 6) break; }
+        URL.revokeObjectURL(img.src);
+        ok({ url, couleurs: choisies.map(rgbHex) });
+      };
+      img.onerror = () => ko(new Error("image illisible"));
+      img.src = URL.createObjectURL(fichier);
+    });
+  }
+
   /* ---------- Réglages du club : fiche, couleurs, rôles (président) ---------- */
   async function vueReglages() {
     const c = S.club, droits = S.modele.modules.droits;
     let html = "";
-    if (D.can("reglages")) html += `<form class="carte" id="rg-club"><h3>Fiche du club</h3><div class="grille2">
-      ${[["nom", "Nom"], ["nomCourt", "Nom court"], ["slogan", "Slogan"], ["ville", "Ville"], ["tel", "Téléphone"], ["whatsapp", "WhatsApp (221…)"], ["logo", "Logo (lien image)"], ["devise", "Devise"]].map(([k, l]) => `<label>${l}<input name="${k}" value="${esc(c[k] || "")}"></label>`).join("")}
+    if (D.can("reglages")) html += `<form class="carte" id="rg-club"><h3>Fiche du club</h3>
+      <div class="logo-zone"><img id="rg-apercu" src="${esc(c.logo || "icons/logo.svg")}" alt="Logo">
+        <div><label class="btn clair petit">📷 Charger le logo<input type="file" accept="image/*" id="rg-fichier" hidden></label>
+        <p class="muted">L'appli lit les couleurs du logo et les propose ci-dessous.</p></div></div>
+      <input type="hidden" name="logo" value="${esc(c.logo || "")}">
+      <div id="rg-palette-zone" hidden><p class="muted">Couleurs du logo. Touchez une couleur pour la mettre en
+        <label class="case"><input type="radio" name="cible" value="principale" checked> principale</label><label class="case"><input type="radio" name="cible" value="accent"> accent</label></p>
+        <div id="rg-palette" class="palette"></div></div>
+      <div class="grille2">
+      ${[["nom", "Nom"], ["nomCourt", "Nom court"], ["slogan", "Slogan"], ["ville", "Ville"], ["tel", "Téléphone"], ["whatsapp", "WhatsApp (221…)"], ["devise", "Devise"]].map(([k, l]) => `<label>${l}<input name="${k}" value="${esc(c[k] || "")}"></label>`).join("")}
       <label>Couleur principale<input type="color" name="principale" value="${esc((c.couleurs || {}).principale || "#0B5D3B")}"></label>
       <label>Couleur d'accent<input type="color" name="accent" value="${esc((c.couleurs || {}).accent || "#F2B705")}"></label></div>
       <p class="muted">Modules souscrits : ${esc((c.modules || []).join(", ") || "aucun")} (gérés par l'admin de la plateforme).</p><button class="btn">Enregistrer</button></form>`;
@@ -410,7 +460,23 @@
       ${Object.entries(S.R).sort((a, b) => b[1].niveau - a[1].niveau).map(([id, r]) => roleHtml(id, r, droits)).join("")}
       <div id="rg-nouveaux"></div><div class="actions"><button type="button" class="btn clair" id="rg-add">+ Nouveau rôle</button><button class="btn">Enregistrer les rôles</button></div></form>`;
     coquille(html || `<div class="carte">Rien à régler pour votre profil.</div>`, "Réglages");
-    const fc = $("#rg-club"); if (fc) fc.onsubmit = (e) => { e.preventDefault(); action(async () => {
+    const fc = $("#rg-club");
+    if (fc) {
+      const apercu = () => appliquerCouleurs(fc.principale.value, fc.accent.value);
+      fc.principale.oninput = apercu; fc.accent.oninput = apercu;
+      $("#rg-fichier").onchange = (e) => action(async () => {
+        const f = e.target.files[0]; if (!f) return;
+        const { url, couleurs } = await lireLogo(f);
+        fc.logo.value = url; $("#rg-apercu").src = url;
+        if (couleurs[0]) fc.principale.value = couleurs[0];
+        if (couleurs[1]) fc.accent.value = couleurs[1];
+        apercu();
+        $("#rg-palette-zone").hidden = false;
+        $("#rg-palette").innerHTML = couleurs.map((h) => `<button type="button" class="pastille" style="background:${h}" data-h="${h}" title="${h}"></button>`).join("");
+        app.querySelectorAll(".pastille").forEach((b) => (b.onclick = () => { fc[fc.querySelector("[name=cible]:checked").value].value = b.dataset.h; apercu(); }));
+      }, "Logo chargé : vérifiez les couleurs puis Enregistrer");
+    }
+    if (fc) fc.onsubmit = (e) => { e.preventDefault(); action(async () => {
       const data = Object.fromEntries(["nom", "nomCourt", "slogan", "ville", "tel", "whatsapp", "logo", "devise"].map((k) => [k, fc[k].value.trim()]));
       data.couleurs = { principale: fc.principale.value, accent: fc.accent.value };
       await B.majClub(S.clubId, data); S.clubId = null; route();

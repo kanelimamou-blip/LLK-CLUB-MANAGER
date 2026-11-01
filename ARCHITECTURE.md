@@ -114,6 +114,7 @@ accueil (vitrine + espace joueur/parent + tableau de bord du staff), pointage, c
 | Nouveau champ (groupe sanguin, taille de maillot…) | `#admin > Modèle > Ajouter un champ` | Non |
 | Nouvelle collection ou nouveau module (boutique, transport…) | `#admin > Modèle > Ajouter une collection` (+ nouveau module) | Non |
 | Nouveau droit | `#admin > Modèle > Ajouter un droit`, puis l'ajouter aux rôles | Non |
+| Couleurs et logo d'un club | le président, dans Réglages : il charge son logo depuis son téléphone, l'appli propose ses couleurs | Non |
 | Nouveau rôle dans un club | le président, dans Réglages | Non |
 | Accès d'un entraîneur à une catégorie | le secrétaire, dans Membres (périmètre) | Non |
 | Logique spéciale (ex. reçus numérotés, pointage par code) | écrire un bloc dédié dans `firestore.rules` + un écran | **Oui**, une fois |

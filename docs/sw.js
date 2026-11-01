@@ -1,5 +1,5 @@
 // Toujours la dernière version quand il y a du réseau ; le cache ne sert que hors connexion.
-const CACHE = "club-v1";
+const CACHE = "club-v2";
 const FILES = ["./", "index.html", "app.css", "config.js", "core/modele.js", "core/donnees.js", "core/droits.js", "core/app.js", "modele/modules.json", "modele/roles.json", "modele/sports.json", "modele/exemple-club.json", "manifest.webmanifest", "icons/logo.svg"];
 self.addEventListener("install", (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
