@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test:regles": "firebase emulators:exec --only firestore --project demo-club \"node tests/regles.test.mjs\"",
-    "test:e2e": "node tests/e2e-demo.cjs http://localhost:8777/"
+    "test:e2e": "node tests/e2e-demo.cjs http://localhost:8777/?demo"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",

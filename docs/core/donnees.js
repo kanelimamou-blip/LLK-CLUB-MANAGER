@@ -211,6 +211,7 @@
     async nommerPresident(c, uid, nom) { await db.doc(`clubs/${c}/membres/${uid}`).set({ nom, tel: "", role: "president", perimetre: ["*"], personneId: "", enfants: [], actif: true, depuis: ts(), ...trace() }); },
   };
 
-  window.Donnees = P.FIREBASE_CONFIG ? Fire : Demo;
+  const demo = !P.FIREBASE_CONFIG || /[?&]demo/.test(location.search);
+  window.Donnees = demo ? Demo : Fire;
   window.Donnees.outils = { nouvelId, ajd };
 })();

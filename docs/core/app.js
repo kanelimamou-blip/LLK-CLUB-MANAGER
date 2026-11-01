@@ -93,7 +93,7 @@
     const r = S.membre.role; return r === "president" ? "Président" : r === "membre" ? (S.membre.enfants && S.membre.enfants.length ? "Parent" : "Membre") : (S.R[r] && S.R[r].nom) || r;
   }
   function barreDemo() {
-    const ms = S.clubId && B.s.clubs[S.clubId] ? B.s.clubs[S.clubId].membres : B.s.clubs[P.clubParDefaut]?.membres || {};
+    const ms = S.clubId && B.s.clubs[S.clubId] ? B.s.clubs[S.clubId].membres : B.s.clubs[P.clubParDefaut || "as-exemple"]?.membres || {};
     const opts = [["visiteur", "Visiteur (vitrine)"], ...Object.entries(ms).map(([u, m]) => [u, m.nom]), ["demo-admin", "Admin plateforme (toi)"]];
     return `<div class="demo">Démo — voir l'appli comme :
       <select id="profil-demo">${opts.map(([u, n]) => `<option value="${u}" ${u === B.uid ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
@@ -122,8 +122,9 @@
       if (parts[0] === "profil") return vueProfil(false);
       // première connexion : la fiche du compte d'abord (sauf l'admin, qui doit pouvoir publier le modèle avant)
       if (B.mode === "firebase" && B.uid && B.compte && !B.compte.complet && parts[0] !== "admin") return vueProfil(true);
-      if (parts[0] === "clubs" || (!parts[0] && !P.clubParDefaut)) return vueClubs();
-      if (!parts[0]) { location.hash = "#/c/" + P.clubParDefaut; return; }
+      const defaut = P.clubParDefaut || (B.mode === "demo" ? "as-exemple" : "");
+      if (parts[0] === "clubs" || (!parts[0] && !defaut)) return vueClubs();
+      if (!parts[0]) { location.hash = "#/c/" + defaut; return; }
       if (parts[0] !== "c") return vueClubs();
       await chargerClub(parts[1]);
       if (!S.club) return coquille(`<div class="carte">Club introuvable.</div>`);
@@ -663,7 +664,7 @@
   /* ---------- Clubs et connexion ---------- */
   async function vueClubs() {
     const clubs = await B.clubs();
-    coquille(`<h2>Clubs</h2>${clubs.filter((c) => c.active || B.estAdmin()).map((c) => `<a class="carte ligne" href="#/c/${esc(c.id)}"><b>${esc(c.nom)}</b><span class="muted">${esc(c.ville || "")}</span></a>`).join("") || `<p class="muted">Aucun club.</p>`}`);
+    coquille(`<h2>Clubs</h2>${clubs.filter((c) => c.active || B.estAdmin()).map((c) => `<a class="carte ligne" href="#/c/${esc(c.id)}"><b>${esc(c.nom)}</b><span class="muted">${esc(c.ville || "")}</span></a>`).join("") || `<div class="carte"><p>Aucun club pour l'instant.</p>${B.uid ? (B.estAdmin() ? `<a class="btn" href="#/admin">Espace admin</a>` : `<a class="btn clair" href="#/admin">Mon identifiant</a>`) : `<a class="btn" href="#/connexion">Connexion</a>`} <a class="btn clair" href="?demo#/">Voir la démo</a></div>`}`);
   }
   // Connexion par téléphone : code secret (gratuit) ou code SMS, selon le réglage de la plateforme (#admin > Connexion)
   const telComplet = (v) => { const n = String(v || "").replace(/[^\d+]/g, ""); return n.startsWith("+") ? n : n.startsWith("00") ? "+" + n.slice(2) : (P.indicatif || "+221") + n; };

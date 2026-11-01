@@ -6,7 +6,7 @@ const { chromium } = require("playwright");
   const page = await b.newPage({ viewport: { width: 390, height: 844 } });
   page.on("pageerror", (e) => errs.push("pageerror " + e.message));
   page.on("console", (m) => m.type() === "error" && errs.push("console " + m.text()));
-  const U = process.argv[2] || "http://localhost:8777/";
+  const U = process.argv[2] || "http://localhost:8777/?demo";
   await page.goto(U); await page.waitForSelector(".hero");
   await page.screenshot({ path: "/tmp/club-s1-accueil-pres.png", fullPage: true });
   const nav = await page.$$eval(".nav a", (as) => as.map((a) => a.textContent.trim()));
