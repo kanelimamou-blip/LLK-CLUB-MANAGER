@@ -21,5 +21,5 @@ window.PLATEFORME = {
     appId: "1:915353399077:web:b2947ba8dede32d0ec34cc",
   },
   // Identifiants Firebase des admins de la plateforme (les mêmes que dans admin() de firestore.rules). Jamais d'e-mail ici.
-  admins: [],
+  admins: ["hsDudcs2MFSa7NpM2wU8ozzdi2X2"],
 };

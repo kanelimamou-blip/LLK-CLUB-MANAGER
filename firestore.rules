@@ -9,7 +9,7 @@ service cloud.firestore {
 
     // ---------- Généralités ----------
     function signedIn() { return request.auth != null; }
-    function admin() { return signedIn() && request.auth.uid in ['ADMIN_UID_A_REMPLACER']; }
+    function admin() { return signedIn() && request.auth.uid in ['hsDudcs2MFSa7NpM2wU8ozzdi2X2']; }
     function str(v, max) { return v is string && v.size() <= max; }
     function d() { return request.resource.data; }
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
