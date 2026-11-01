@@ -1,6 +1,6 @@
 {
   "_lisezmoi": "LE fichier du modèle. Chaque module déclare ses collections Firestore (sous clubs/{clubId}/), qui peut lire, quel droit faut-il pour écrire, et les champs. Après une modification : npm run regles (réécrit la politique dans firestore.rules). L'appli construit ses écrans (listes + fiches) à partir de ce même fichier.",
-  "version": 5,
+  "version": 6,
   "_aide": {
     "lire": "public = tout le monde (vitrine) ; public? = public si le document a public=true, sinon membres ; membre = membres actifs du club ; sinon le nom d'un droit (limité au périmètre du membre)",
     "ecrire": "le droit nécessaire pour créer, modifier, supprimer (toujours limité au périmètre : sections et catégories du membre)",
@@ -391,7 +391,8 @@
             "photo",
             "contactUrgence",
             "forme",
-            "charges"
+            "charges",
+            "declarations"
           ],
           "colonnes": [
             "nom",
@@ -561,6 +562,12 @@
               "id": "charges",
               "type": "map",
               "label": "Effort des séances (rempli par le joueur)",
+              "systeme": true
+            },
+            {
+              "id": "declarations",
+              "type": "map",
+              "label": "Versements déclarés (captures en attente de vérification)",
               "systeme": true
             }
           ]
@@ -1446,6 +1453,90 @@
               "id": "actif",
               "type": "booleen",
               "label": "En cours"
+            }
+          ]
+        },
+        {
+          "id": "versements",
+          "nom": "Caisse ouverte : versements vérifiés",
+          "lire": "membre",
+          "ecrire": "finances",
+          "garder": true,
+          "colonnes": [
+            "nom",
+            "montant",
+            "dateVersement"
+          ],
+          "champs": [
+            {
+              "id": "personneId",
+              "type": "ref",
+              "ref": "personnes",
+              "label": "Cotisant",
+              "requis": true
+            },
+            {
+              "id": "nom",
+              "type": "texte",
+              "label": "Nom affiché"
+            },
+            {
+              "id": "montant",
+              "type": "montant",
+              "label": "Montant",
+              "requis": true
+            },
+            {
+              "id": "mode",
+              "type": "choix",
+              "options": [
+                "wave",
+                "orange money",
+                "espèces"
+              ],
+              "label": "Mode"
+            },
+            {
+              "id": "dateVersement",
+              "type": "date",
+              "label": "Date du versement"
+            },
+            {
+              "id": "numero",
+              "type": "nombre",
+              "label": "Reçu n°"
+            },
+            {
+              "id": "valideLe",
+              "type": "texte",
+              "label": "Vérifié le"
+            }
+          ]
+        },
+        {
+          "id": "justificatifs",
+          "nom": "Preuves des versements",
+          "lire": "membre",
+          "ecrire": "finances",
+          "garder": true,
+          "colonnes": [
+            "versementId"
+          ],
+          "champs": [
+            {
+              "id": "versementId",
+              "type": "texte",
+              "label": "Versement"
+            },
+            {
+              "id": "capture",
+              "type": "image",
+              "label": "Capture envoyée par le cotisant"
+            },
+            {
+              "id": "contre",
+              "type": "image",
+              "label": "Contre-capture du point focal"
             }
           ]
         }

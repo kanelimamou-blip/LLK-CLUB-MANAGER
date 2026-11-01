@@ -90,6 +90,7 @@
     clubs: '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-5h6v5"/>',
     forme: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
     partager: '<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.2 10.8 7.6-4.1M8.2 13.2l7.6 4.1"/>',
+    cotiser: '<path d="M12 3v18M16.5 7.5c-.7-1.4-2.4-2.3-4.5-2.3-2.6 0-4.3 1.3-4.3 3.2 0 4.4 9 2.4 9 6.9 0 2-1.9 3.4-4.7 3.4-2.3 0-4.1-1-4.8-2.6"/>',
     bilan: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     supporter: '<path d="M12 21s-7-4.4-9.2-9C1.4 8.8 3.4 5 7 5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.6 0 5.6 3.8 4.2 7-2.2 4.6-9.2 9-9.2 9z"/>',
     plus: '<circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/>',
@@ -113,6 +114,8 @@
     if (D.can("membres")) items.push({ h: `${c}/membres`, t: "Membres", k: "membres" });
     if (D.can("reglages") || D.president()) items.push({ h: `${c}/reglages`, t: "Réglages", k: "reglages" });
     if (B.estAdmin()) items.push({ h: "#/admin", t: "Admin", k: "admin" });
+    // caisse ouverte : juste après l'accueil, c'est l'action la plus fréquente quand elle est activée
+    if (moduleOn("finances") && (S.caisseActive || D.can("reglages"))) items.splice(1, 0, { h: `${c}/cotiser`, t: S.caisseActive ? "Cotiser" : "Caisse ouverte", k: "cotiser" });
     return items;
   }
   // Bouton « + » présent sur tous les écrans du club : on ajoute sans revenir à l'accueil.
@@ -198,6 +201,7 @@
     S.membre = await B.monMembre(id);
     S.R = await B.roles(id);
     D.regler({ uid: B.uid === "visiteur" ? null : B.uid, admin: B.estAdmin(), membre: S.membre, R: S.R });
+    S.caisseActive = !!((await B.reglage(id, "caisse")) || {}).actif;
     const coul = S.club.couleurs || {};
     appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
     iconeClub(S.club);
@@ -227,6 +231,7 @@
       if (v === "forme") return vueForme();
       if (v === "caisse") return vueCaisse();
       if (v === "bilan") return vueBilan();
+      if (v === "cotiser") return vueCotiser();
       if (v === "membres") return vueMembres();
       if (v === "reglages") return vueReglages();
       coquille(`<div class="carte">Page inconnue.</div>`);
@@ -285,7 +290,7 @@
     const dans7 = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
     const prochain = avenir.find((e) => e.type === "match" && e.debut <= dans7 && D.lecture(pol("evenements"), e, e.id)) || avenir[0];
     let html = `<section class="hero">${PITCH}<div class="hero-in">
-      <span class="tonight"><i></i>${prochain ? `Prochain : ${esc(nomDoc(prochain))} · ${dateFr(prochain.debut)}` : "Saison en cours"}</span>
+      <span class="tonight"><i></i>${prochain ? `Prochain : ${esc(nomDoc(prochain))} · ${dateFr(prochain.debut)}` : S.caisseActive && !evts.length ? "Hors saison · on prépare la prochaine" : "Saison en cours"}</span>
       ${c.logo ? `<img class="hero-logo" src="${esc(c.logo)}" alt="">` : ""}
       <h1>${esc(mots.join(" "))}${dernier ? ` <em>${esc(dernier)}</em>` : ""}</h1>${c.slogan ? `<p>${esc(c.slogan)}</p>` : ""}
       <div class="actions">${moduleOn("sportif") && lisible(pol("evenements")) ? `<a class="btn accent" href="#/c/${S.clubId}/m/sportif">Voir le planning</a>` : ""}
@@ -295,6 +300,7 @@
         <div><b>${semaine}</b><span>événements cette semaine</span></div><div><b>${joues.length}</b><span>matchs joués</span></div></div>
       <div class="puces">${(S.cache.sections || []).map((s) => `<span class="puce">${esc((S.sports[s.sportId] || {}).icone || "")} ${esc(s.nom)}</span>`).join("")}</div></div></section>`;
 
+    if (moduleOn("finances")) html += await caisseResumeHtml();
     if (D.membre() && peutStructurer() && !(S.cache.sections || []).length) { await charger("equipes"); html += structureHtml(true); }
     if (!D.membre()) {
       if (S.membre && !S.membre.actif) html += `<div class="carte info">Votre demande d'adhésion est en attente de validation par le club.</div>`;
@@ -543,6 +549,135 @@
       ${!D.membre() ? (B.mode === "firebase" && !B.uid ? `<a class="btn large-btn" href="#/connexion">Je deviens supporter</a>` : `<p class="muted">Envoyez votre demande ci-dessus en choisissant « supporter » dans votre profil.</p>`) : ""}</div>`;
     return h;
   }
+  /* ---------- Caisse ouverte : chacun verse quand il veut sur le numéro du club (Wave / Orange Money),
+     envoie sa capture, le point focal vérifie et répond par une contre-capture. Tout le monde voit la balance.
+     Sans API de paiement et sans règle à recoller :
+     - la déclaration va dans la fiche du cotisant (personnes.declarations, champ « réponse ») ;
+     - une fois vérifiée : reçu numéroté (paiements) + ligne publique (versements) + preuves (justificatifs) ;
+     - les totaux publics (vitrine) sont dans reglages/caisse. */
+  const moisCle = (d = jour()) => String(d).slice(0, 7);
+  const moisNom = (k) => new Date(k + "-01T00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  const waNum = (t) => telComplet(t).replace(/\D/g, "");
+  const statsCaisse = (vers) => {
+    const mois = {}, qui = new Set(); let total = 0;
+    vers.forEach((v) => { total += v.montant || 0; const k = moisCle(v.dateVersement || ""); mois[k] = (mois[k] || 0) + (v.montant || 0); qui.add(v.personneId || v.nom); });
+    return { total, mois, cotisants: qui.size, versements: vers.length };
+  };
+  function caisseTete(cfg, st) {
+    const k = moisCle(), m = (st.mois || {})[k] || 0, obj = cfg.objectif || 0, pc = obj ? Math.min(100, Math.round((m / obj) * 100)) : 0;
+    return `<div class="caisse-tete">${PITCH}<span class="sur">Caisse du club · transparente</span><b class="caisse-total">${argent(st.total)}</b><span>collectés par ${st.cotisants || 0} cotisant${st.cotisants > 1 ? "s" : ""} · ${st.versements || 0} versement${st.versements > 1 ? "s" : ""} vérifié${st.versements > 1 ? "s" : ""}</span>
+      ${obj ? `<div class="caisse-obj"><span>Objectif de ${esc(moisNom(k))}</span><b>${argent(m)} <small>sur ${argent(obj)}</small></b><div class="jauge"><i style="width:${Math.max(pc, 2)}%"></i></div><small>${pc} % atteint${pc < 100 ? ` · il manque ${argent(obj - m)}` : " · bravo à tous !"}</small></div>` : ""}</div>`;
+  }
+  // accueil : résumé public de la caisse (lisible par tous via reglages/caisse)
+  async function caisseResumeHtml() {
+    const cfg = await B.reglage(S.clubId, "caisse");
+    if (!cfg || !cfg.actif) return "";
+    return `<a class="carte caisse-resume" href="#/c/${S.clubId}/cotiser">${caisseTete(cfg, cfg.stats || {})}<span class="btn accent">${D.membre() ? "Cotiser ou voir qui a versé" : "Voir la caisse"}</span></a>`;
+  }
+  async function vueCotiser() {
+    const cfg = (await B.reglage(S.clubId, "caisse")) || {};
+    const fin = D.can("finances"), membre = D.membre();
+    const [ps, vers] = await Promise.all([fin || D.mesPersonnes().length ? charger("personnes") : [], membre ? charger("versements") : []]);
+    vers.sort((a, b) => ((a.dateVersement || "") + (a.numero || 0) < (b.dateVersement || "") + (b.numero || 0) ? 1 : -1));
+    const st = membre ? statsCaisse(vers) : cfg.stats || {};
+    const moi = D.mesPersonnes()[0], maFiche = ps.find((p) => p.id === moi);
+    const mesDecl = maFiche ? Object.entries(maFiche.declarations || {}).filter(([, d]) => d.statut !== "validée").sort((a, b) => (a[1].envoye < b[1].envoye ? 1 : -1)) : [];
+    const aVerifier = fin ? ps.flatMap((p) => Object.entries(p.declarations || {}).filter(([, d]) => d.statut === "en attente").map(([id, d]) => ({ id, d, p }))).sort((a, b) => (a.d.envoye > b.d.envoye ? 1 : -1)) : [];
+    const num = cfg.numero ? esc(cfg.numero) : "";
+    let h = caisseTete(cfg, st);
+    if (!cfg.actif && !D.can("reglages")) h += `<div class="carte info">La caisse ouverte n'est pas encore activée par le club.</div>`;
+    if (cfg.numero) h += `<div class="carte"><h3>Comment cotiser</h3>${cfg.texte ? `<p>${esc(cfg.texte)}</p>` : ""}
+      <button type="button" class="numero-pay" id="copier-num"><span>Wave · Orange Money</span><b>${num}</b><small>${esc(cfg.titulaire || "")}${cfg.titulaire ? " · " : ""}appuyez pour copier</small></button>
+      <ol class="etapes"><li><b>Versez</b> le montant de votre choix, quand vous voulez : chaque jour, chaque semaine, une fois…</li><li><b>Faites une capture</b> de l'écran de confirmation.</li><li><b>Envoyez-la ici.</b> Le point focal vérifie et vous répond par sa contre-capture : votre versement entre dans la balance, visible par tous.</li></ol></div>`;
+    if (membre && maFiche) {
+      const total = vers.filter((v) => v.personneId === moi).reduce((a, v) => a + (v.montant || 0), 0);
+      h += `<form class="carte" id="decl"><div class="lien-tete"><h3>J'ai versé</h3><span class="badge">Mon total : ${argent(total)}</span></div>
+        <div class="choix-mode">${["wave", "orange money"].map((m, i) => `<label><input type="radio" name="mode" value="${m}" ${i ? "" : "checked"}><span>${m === "wave" ? "Wave" : "Orange Money"}</span></label>`).join("")}</div>
+        <div class="grille2"><label>Montant (${esc(devise())})<input name="montant" type="number" inputmode="numeric" min="1" required placeholder="ex. 1000"></label>
+        <label>Date du versement<input name="date" type="date" value="${jour()}" max="${jour()}" required></label></div>
+        <label class="large">Capture du paiement *${champHtml({ id: "capture", type: "image" }, "", true, {})}</label>
+        <button class="btn">Envoyer pour vérification</button></form>`;
+      if (mesDecl.length) h += `<div class="carte"><h3>Mes envois</h3>${mesDecl.map(([, d]) => `<div class="ligne"><div><b>${argent(d.montant)}</b> · ${esc(d.mode)} · ${dateFr(d.date)}<br><small class="muted">${d.statut === "refusée" ? "Refusé : " + esc(d.motif || "") + " · renvoyez une capture" : "Envoyé, en attente de vérification"}</small></div><span class="statut ${d.statut === "refusée" ? "rouge" : "orange"}">${d.statut === "refusée" ? "refusé" : "en attente"}</span></div>`).join("")}
+        ${cfg.focal || cfg.numero ? `<a class="btn petit clair" target="_blank" rel="noopener" href="https://wa.me/${waNum(cfg.focal || cfg.numero)}?text=${encodeURIComponent(`Salut, j'ai envoyé ma capture de versement dans l'appli ${S.club.nom} : merci de vérifier 🙏`)}">Prévenir le point focal sur WhatsApp</a>` : ""}</div>`;
+    } else if (membre) h += `<div class="carte info">Votre fiche n'est pas encore liée à votre compte : le club doit la créer (Membres) pour que vous puissiez envoyer vos captures.</div>`;
+    else h += `<div class="carte"><p>Rejoignez le club dans l'appli pour envoyer vos captures et voir qui a versé quoi.</p>${B.mode === "firebase" && !B.uid ? `<a class="btn" href="#/connexion">Se connecter</a>` : `<a class="btn" href="#/c/${S.clubId}">Envoyer ma demande</a>`}</div>`;
+    if (fin) {
+      h += `<div class="carte"><div class="lien-tete"><h3>À vérifier</h3><span class="badge ${aVerifier.length ? "alerte" : ""}">${aVerifier.length}</span></div>
+        ${aVerifier.map(({ id, d, p }) => `<form class="verif" data-p="${esc(p.id)}" data-d="${esc(id)}"><div class="ligne">${avatar(p)}<div class="grow"><b>${esc(nomDoc(p))}</b><br><small class="muted">${esc(d.mode)} · versé le ${dateFr(d.date)} · envoyé ${dateFr(String(d.envoye || "").slice(0, 10))} à ${esc(String(d.envoye || "").slice(11, 16))}</small></div><b>${argent(d.montant)}</b></div>
+          <div class="preuves"><figure><img class="zoomable" src="${esc(d.capture)}" alt=""><figcaption>Sa capture</figcaption></figure>
+          <figure>${champHtml({ id: "contre", type: "image" }, "", true, {})}<figcaption>Ma contre-capture *</figcaption></figure></div>
+          <input name="motif" placeholder="Motif si refus (ex. montant introuvable)">
+          <div class="actions"><button class="btn" name="ok">Valider : reçu et balance</button><button type="button" class="btn clair" data-refus>Refuser</button></div></form>`).join("") || `<p class="muted">Rien en attente. Les captures envoyées apparaissent ici.</p>`}
+        <details><summary>Enregistrer un versement reçu (espèces, ou mon propre versement)</summary><form id="direct" class="grille2">
+          <label>Cotisant<select name="pid" required><option value=""></option>${ps.slice().sort((a, b) => nomDoc(a).localeCompare(nomDoc(b))).map((p) => `<option value="${p.id}">${esc(nomDoc(p))}</option>`).join("")}</select></label>
+          <label>Mode<select name="mode"><option>wave</option><option>orange money</option><option>espèces</option></select></label>
+          <label>Montant<input name="montant" type="number" inputmode="numeric" required></label><label>Date<input name="date" type="date" value="${jour()}" required></label>
+          <label class="large">Preuve (capture ou photo)${champHtml({ id: "contre", type: "image" }, "", true, {})}</label><button class="btn">Enregistrer</button></form></details></div>`;
+    }
+    if (membre) {
+      const parP = {}; vers.forEach((v) => { const k = v.personneId || v.nom; parP[k] = parP[k] || { nom: v.nom, id: v.personneId, t: 0, n: 0 }; parP[k].t += v.montant || 0; parP[k].n++; });
+      const cl = Object.values(parP).sort((a, b) => b.t - a.t), max = cl[0] ? cl[0].t : 1;
+      h += `<div class="carte"><h3>Qui a cotisé combien</h3>${cl.map((x, i) => `<div class="barre-l classement"><span><i>${i + 1}</i>${esc(x.nom)}${x.id === moi ? " (moi)" : ""}</span><div class="jauge"><i style="width:${Math.max(3, Math.round((x.t / max) * 100))}%"></i></div><b>${argent(x.t)}</b></div>`).join("") || `<p class="muted">Pas encore de versement vérifié : soyez le premier !</p>`}</div>
+        <div class="carte"><h3>Le registre</h3><p class="muted">Chaque ligne a sa preuve : la capture du cotisant et la contre-capture du point focal.</p>${vers.slice(0, 80).map((v) => `<div class="registre"><div class="ligne"><div><b>${esc(v.nom)}</b> · ${argent(v.montant)}<br><small class="muted">${esc(v.mode || "")} · ${dateFr(v.dateVersement)}${v.numero ? ` · reçu n° ${v.numero}` : ""} · vérifié ✓</small></div><button type="button" class="btn petit clair" data-preuve="${esc(v.id)}">Preuves</button></div><div class="preuves" hidden></div></div>`).join("") || `<p class="muted">Vide pour l'instant.</p>`}</div>`;
+    }
+    if (D.can("reglages")) h += `<details class="carte"><summary><b>Réglages de la caisse</b></summary><form id="cfg-caisse" class="grille2">
+      <label class="case large"><input type="checkbox" name="actif" ${cfg.actif ? "checked" : ""}> Caisse ouverte activée (visible sur l'accueil)</label>
+      <label>Numéro Wave / Orange Money<input name="numero" type="tel" value="${esc(cfg.numero || "")}" placeholder="77 000 00 00"></label>
+      <label>Au nom de<input name="titulaire" value="${esc(cfg.titulaire || "")}"></label>
+      <label>Objectif par mois (${esc(devise())})<input name="objectif" type="number" inputmode="numeric" value="${esc(cfg.objectif || "")}"></label>
+      <label>WhatsApp du point focal<input name="focal" type="tel" value="${esc(cfg.focal || "")}" placeholder="si différent du numéro"></label>
+      <label class="large">Message d'appel<textarea name="texte" rows="2">${esc(cfg.texte || "")}</textarea></label><button class="btn">Enregistrer</button></form></details>`;
+    coquille(h, "Caisse ouverte");
+
+    const cp = $("#copier-num"); if (cp) cp.onclick = () => navigator.clipboard.writeText(String(cfg.numero).replace(/\s/g, "")).then(() => toast("Numéro copié : collez-le dans Wave ou Orange Money"), () => toast(cfg.numero));
+    app.querySelectorAll(".zoomable").forEach((i) => (i.onclick = () => i.classList.toggle("zoom")));
+    const fd = $("#decl"); if (fd) fd.onsubmit = (e) => { e.preventDefault(); action(async () => {
+      const montant = Math.round(Number(fd.montant.value)), capture = fd.capture.value;
+      if (!(montant > 0)) throw new Error("montant manquant"); if (!capture) throw new Error("ajoutez la capture du paiement");
+      const decl = { ...(maFiche.declarations || {}) };
+      for (const [k, d] of Object.entries(decl)) if (d.statut === "validée" && d.envoye < local(new Date(Date.now() - 90 * 864e5))) delete decl[k]; // garde la fiche légère
+      decl[B.outils.nouvelId()] = { montant, mode: fd.mode.value, date: fd.date.value, capture, envoye: local().slice(0, 16), statut: "en attente" };
+      await B.ecrire(S.clubId, "personnes", moi, { declarations: decl }); vider("personnes"); vueCotiser();
+    }, "Envoyé : en attente de vérification"); };
+    // validation : reçu numéroté, ligne publique, preuves, puis la déclaration passe « validée » (capture retirée de la fiche)
+    async function enregistrer(p, montant, mode, date, capture, contre) {
+      const nom = nomDoc(p);
+      const n = await B.encaisser(S.clubId, { personneId: p.id, echeanceId: "", montant, mode: mode === "espèces" ? "espèces" : mode, motif: `Caisse ouverte · versement du ${date}`.slice(0, 120), payeur: "", sectionId: p.sectionId || "", categorieId: p.categorieId || "" });
+      const vid = await B.ecrire(S.clubId, "versements", null, { personneId: p.id, nom, montant, mode, dateVersement: date, numero: n, valideLe: local().slice(0, 16) });
+      await B.ecrire(S.clubId, "justificatifs", vid, { versementId: vid, capture: capture || "", contre: contre || "" });
+      vider("versements");
+      const tous = await charger("versements");
+      await B.ecrireReglage(S.clubId, "caisse", { stats: statsCaisse(tous) }).catch(() => {});
+      return n;
+    }
+    app.querySelectorAll("form.verif").forEach((f) => {
+      const it = aVerifier.find((x) => x.p.id === f.dataset.p && x.id === f.dataset.d);
+      const fermer = async (statut, extra) => { const decl = { ...(it.p.declarations || {}) }; decl[it.id] = { ...decl[it.id], ...extra, statut, capture: "", traite: local().slice(0, 16) }; await B.ecrire(S.clubId, "personnes", it.p.id, { declarations: decl }); vider("personnes"); };
+      f.onsubmit = (e) => { e.preventDefault(); action(async () => {
+        if (!f.contre.value) throw new Error("ajoutez votre contre-capture");
+        const n = await enregistrer(it.p, it.d.montant, it.d.mode, it.d.date, it.d.capture, f.contre.value);
+        await fermer("validée", { numero: n }); await vueCotiser();
+        if (it.p.tel) app.querySelector("main").insertAdjacentHTML("afterbegin", `<div class="carte info"><b>Reçu n° ${n} : ${esc(nomDoc(it.p))}, ${argent(it.d.montant)}</b><br><a class="btn petit" target="_blank" rel="noopener" href="https://wa.me/${waNum(it.p.tel)}?text=${encodeURIComponent(`✅ ${S.club.nom} : ton versement de ${argent(it.d.montant)} du ${it.d.date} est vérifié (reçu n° ${n}). Merci ! Il est dans la balance du club.`)}">Le prévenir sur WhatsApp</a></div>`);
+      }, "Versement vérifié et ajouté à la balance"); };
+      f.querySelector("[data-refus]").onclick = () => action(async () => {
+        if (!f.motif.value.trim()) throw new Error("écrivez le motif du refus"); await fermer("refusée", { motif: f.motif.value.trim().slice(0, 120) }); vueCotiser();
+      }, "Refus envoyé au cotisant");
+    });
+    const dr = $("#direct"); if (dr) dr.onsubmit = (e) => { e.preventDefault(); action(async () => {
+      const p = ps.find((x) => x.id === dr.pid.value), montant = Math.round(Number(dr.montant.value)); if (!p || !(montant > 0)) throw new Error("cotisant et montant");
+      const n = await enregistrer(p, montant, dr.mode.value, dr.date.value, "", dr.contre.value); toast(`Reçu n° ${n} enregistré`); vueCotiser();
+    }); };
+    app.querySelectorAll("[data-preuve]").forEach((b) => (b.onclick = () => action(async () => {
+      const z = b.closest(".registre").querySelector(".preuves"); if (!z.hidden) { z.hidden = true; return; }
+      const j = await B.lire(S.clubId, "justificatifs", b.dataset.preuve) || {};
+      z.innerHTML = [["capture", "Capture du cotisant"], ["contre", "Contre-capture du point focal"]].map(([k, t]) => `<figure>${j[k] ? `<img class="zoomable" src="${esc(j[k])}" alt="">` : `<span class="apercu-img vide">—</span>`}<figcaption>${t}</figcaption></figure>`).join("");
+      z.hidden = false; z.querySelectorAll(".zoomable").forEach((i) => (i.onclick = () => i.classList.toggle("zoom")));
+    })));
+    const fc = $("#cfg-caisse"); if (fc) fc.onsubmit = (e) => { e.preventDefault(); action(async () => {
+      await B.ecrireReglage(S.clubId, "caisse", { actif: fc.actif.checked, numero: fc.numero.value.trim().slice(0, 30), titulaire: fc.titulaire.value.trim().slice(0, 60), objectif: Math.round(Number(fc.objectif.value)) || 0, focal: fc.focal.value.trim().slice(0, 30), texte: fc.texte.value.trim().slice(0, 300), ...(membre ? { stats: statsCaisse(vers) } : {}) }); S.caisseActive = fc.actif.checked; vueCotiser();
+    }, "Caisse enregistrée"); };
+  }
+
   // bilan financier pour le président et le trésorier
   async function vueBilan() {
     const [recus, deps, echs, ps, sponsors, collectes, formules] = await Promise.all([B.paiements(S.clubId).catch(() => []), charger("depenses"), charger("echeances"), charger("personnes"), charger("sponsors"), charger("collectes"), charger("formules")]);

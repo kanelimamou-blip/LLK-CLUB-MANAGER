@@ -76,6 +76,8 @@
     async membres(c) { return Object.entries(Demo.s.clubs[c].membres).map(([uid, m]) => ({ uid, ...m })); },
     async ecrireMembre(c, uid, data) { const ms = Demo.s.clubs[c].membres; ms[uid] = { ...(ms[uid] || {}), ...data }; Demo.sauver(); },
     async ecrireRoles(c, roles) { Demo.s.clubs[c].reglages.roles = { roles }; Demo.sauver(); },
+    async reglage(c, id) { const r = Demo.s.clubs[c] && Demo.s.clubs[c].reglages[id]; return r ? copie(r) : null; },
+    async ecrireReglage(c, id, data) { const rg = Demo.s.clubs[c].reglages; rg[id] = { ...(rg[id] || {}), ...data, maj: new Date().toISOString(), par: Demo.uid }; Demo.sauver(); },
     async majClub(c, data) { Object.assign(Demo.s.clubs[c].club, data); Demo.sauver(); },
     async encaisser(c, data) {
       const cl = Demo.s.clubs[c]; const n = (cl.compteurs.recu || 0) + 1; cl.compteurs.recu = n;
@@ -198,6 +200,8 @@
       await db.doc(`clubs/${c}/membres/${Fire.uid}`).set({ nom, tel, role: "membre", perimetre: [], personneId: "", enfants: [], actif: false, depuis: ts(), message, profil, ...trace() });
     },
     async ecrireRoles(c, roles) { await db.doc(`clubs/${c}/reglages/roles`).set({ roles, ...trace() }); },
+    async reglage(c, id) { try { const s = await db.doc(`clubs/${c}/reglages/${id}`).get(); return s.exists ? s.data() : null; } catch { return null; } },
+    async ecrireReglage(c, id, data) { await db.doc(`clubs/${c}/reglages/${id}`).set({ ...data, ...trace() }, { merge: true }); },
     async majClub(c, data) { await db.doc("clubs/" + c).update({ ...data, ...trace() }); },
     async encaisser(c, data) {
       return db.runTransaction(async (tx) => {

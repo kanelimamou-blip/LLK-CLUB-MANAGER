@@ -56,7 +56,7 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   await page.click(".club-adm [data-pres]"); console.log("président nommé:", await toast());
   await deco();
   await codeLogin("78 111 22 33", "424242", false);
-  await page.goto(U + "#/c/test-fc"); await page.waitForSelector(".hero"); console.log("badge:", await page.textContent(".top .badge"));
+  await page.goto(U + "#/c/test-fc"); await page.waitForSelector(".hero"); console.log("rôle:", await page.textContent(".top .qui small"));
   await page.goto(U + "#/c/test-fc/f/sections/nouveau"); await page.waitForSelector("#fiche");
   await page.fill("[name=nom]", "Football"); await page.selectOption("[name=sportId]", "football"); await page.click("button[type=submit]"); console.log("section:", await toast());
   const secId = page.url().split("/").pop();
@@ -101,11 +101,31 @@ const NM = require("path").join(__dirname, "../node_modules/firebase/");
   for (const q of ["sommeil", "energie", "muscles", "moral", "envie"]) await page.click(`[data-q=${q}] [data-v="2"]`);
   await page.fill(".forme-q [name=douleur]", "genou"); await page.click(".forme-q button.btn"); console.log("forme du matin:", await toast());
   console.log("forme relue:", await page.$eval(".forme-bloc", (e) => e.innerText.replace(/\s+/g, " ").slice(0, 80)));
+  // caisse ouverte : le joueur déclare un versement avec sa capture (rangé dans sa fiche, champ réponse du modèle)
+  const CAP = require("path").join(__dirname, "capture-test.jpg");
+  await page.goto(U + "#/c/test-fc/cotiser"); await page.waitForSelector("#decl");
+  await page.fill("#decl [name=montant]", "2500"); await page.setInputFiles("#decl input[data-photo]", CAP); await page.waitForTimeout(800);
+  await page.click("#decl button.btn"); console.log("versement déclaré:", await toast());
   await deco();
   // le président (droit effectif) voit le joueur en orange sur le tableau du matin
   await codeLogin("78 111 22 33", "424242", false);
   await page.goto(U + "#/c/test-fc/forme"); await page.waitForSelector(".resume-forme");
   console.log("tableau du matin:", await page.$eval(".forme-ligne", (e) => e.className + " | " + e.innerText.replace(/\s+/g, " ")));
+  // le président active la caisse (reglages/caisse), vérifie la capture et répond par sa contre-capture
+  await page.goto(U + "#/c/test-fc/cotiser"); await page.waitForSelector("form.verif");
+  await page.click("details.carte summary"); await page.check("#cfg-caisse [name=actif]"); await page.fill("#cfg-caisse [name=numero]", "77 000 00 00"); await page.fill("#cfg-caisse [name=objectif]", "100000");
+  await page.click("#cfg-caisse button"); console.log("caisse activée:", await toast());
+  await page.waitForSelector("form.verif"); await page.setInputFiles("form.verif input[data-photo]", CAP); await page.waitForTimeout(800);
+  await page.click("form.verif button[name=ok]"); console.log("versement vérifié:", await toast());
+  console.log("balance:", await page.$eval(".caisse-total", (e) => e.textContent), "| à vérifier:", await page.$$eval("form.verif", (l) => l.length));
+  await deco();
+  await codeLogin("76 555 44 33", "135790", false);
+  await page.goto(U + "#/c/test-fc/cotiser"); await page.waitForSelector(".registre");
+  console.log("joueur voit:", await page.$eval("#decl .badge", (e) => e.textContent), "|", await page.$eval(".registre", (e) => e.innerText.replace(/\s+/g, " ").slice(0, 90)));
+  await page.click("[data-preuve]"); await page.waitForTimeout(1200); console.log("preuves visibles:", await page.$$eval(".registre .preuves img", (l) => l.length));
+  await deco();
+  await page.goto(U + "#/c/test-fc"); await page.waitForTimeout(1500); console.log("visiteur voit la caisse:", await page.$eval(".caisse-tete", (e) => e.innerText.replace(/\s+/g, " ").slice(0, 80)).catch(() => "NON"));
+  await codeLogin("78 111 22 33", "424242", false);
   await deco();
   // Connexion par SMS (l'émulateur donne le code)
   await codeLogin("77 000 00 01", "111111", false);
