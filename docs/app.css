@@ -449,3 +449,6 @@ img.zoomable.zoom { position: fixed; inset: 0; z-index: 99; width: 100vw; height
 .etape-r.ouverte > div { display: grid; gap: 10px; }
 .guide { padding-left: 20px; margin: 0; display: grid; gap: 8px; font-size: 15px; }
 .ico-ios { width: 20px; height: 20px; vertical-align: -4px; color: #0a84ff; }
+.hero.avec-photo { background: linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.55) 45%, var(--deep) 100%), var(--couv) center 30% / cover; }
+.hero.avec-photo .pitch { opacity: .08; }
+.hero.avec-photo .hero-in { padding-top: 120px; }

@@ -202,6 +202,7 @@
     S.R = await B.roles(id);
     D.regler({ uid: B.uid === "visiteur" ? null : B.uid, admin: B.estAdmin(), membre: S.membre, R: S.R });
     S.caisseActive = !!((await lireCaisse()) || {}).actif;
+    S.apparence = (await B.reglage(id, "apparence")) || {};
     const coul = S.club.couleurs || {};
     appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
     iconeClub(S.club);
@@ -292,11 +293,11 @@
     const semaine = avenir.filter((e) => e.debut <= new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)).length;
     const dans7 = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
     const prochain = avenir.find((e) => e.type === "match" && e.debut <= dans7 && D.lecture(pol("evenements"), e, e.id)) || avenir[0];
-    let html = `<section class="hero">${PITCH}<div class="hero-in">
+    let html = `<section class="hero ${(S.apparence || {}).couverture ? "avec-photo" : ""}" ${(S.apparence || {}).couverture ? `style="--couv:url('${esc(S.apparence.couverture)}')"` : ""}>${PITCH}<div class="hero-in">
       <span class="tonight"><i></i>${prochain ? `Prochain : ${esc(nomDoc(prochain))} · ${dateFr(prochain.debut)}` : S.caisseActive && !evts.length ? "Hors saison · on prépare la prochaine" : "Saison en cours"}</span>
       ${c.logo ? `<img class="hero-logo" src="${esc(c.logo)}" alt="">` : ""}
       <h1>${esc(mots.join(" "))}${dernier ? ` <em>${esc(dernier)}</em>` : ""}</h1>${c.slogan ? `<p>${esc(c.slogan)}</p>` : ""}
-      <div class="actions">${moduleOn("sportif") && lisible(pol("evenements")) ? `<a class="btn accent" href="#/c/${S.clubId}/m/sportif">Voir le planning</a>` : ""}
+      <div class="actions">${S.caisseActive && !avenir.length ? `<a class="btn accent" href="#/c/${S.clubId}/cotiser">Cotiser pour le club</a>` : moduleOn("sportif") && lisible(pol("evenements")) ? `<a class="btn accent" href="#/c/${S.clubId}/m/sportif">Voir le planning</a>` : ""}
         ${!D.membre() ? `<a class="btn ligne-btn" href="#/c/${S.clubId}/rejoindre">Rejoindre le club</a>` : ""}
         ${installee() ? "" : `<button class="btn ligne-btn installer" id="installer" ${invite || estIOS ? "" : "hidden"}>Installer l'appli</button>`}</div>
       <div class="scoreline"><div><b>${(S.cache.sections || []).length}</b><span>${(S.cache.sections || []).length > 1 ? "sports" : "sport"} au club</span></div>
@@ -1100,6 +1101,7 @@
       ${[["nom", "Nom"], ["nomCourt", "Nom court"], ["slogan", "Slogan"], ["ville", "Ville"], ["tel", "Téléphone"], ["whatsapp", "WhatsApp (221…)"], ["devise", "Devise"]].map(([k, l]) => `<label>${l}<input name="${k}" value="${esc(c[k] || "")}"></label>`).join("")}
       <label>Couleur principale<input type="color" name="principale" value="${esc((c.couleurs || {}).principale || "#0B5D3B")}"></label>
       <label>Couleur d'accent<input type="color" name="accent" value="${esc((c.couleurs || {}).accent || "#F2B705")}"></label></div>
+      <label class="large">Photo de couverture (affiche, photo d'équipe : en fond de l'accueil)${champHtml({ id: "couverture", type: "image" }, (S.apparence || {}).couverture || "", true, {})}</label>
       <p class="muted">Modules souscrits : ${esc((c.modules || []).join(", ") || "aucun")} (gérés par l'admin de la plateforme).</p><button class="btn">Enregistrer</button></form>`;
     if (D.president()) html += `<form class="carte" id="rg-roles"><h3>Rôles du club</h3><p class="muted">Créez vos propres rôles (niveau 1 à 99). Un membre ne donne que des rôles sous son niveau.</p>
       ${Object.entries(S.R).sort((a, b) => b[1].niveau - a[1].niveau).map(([id, r]) => roleHtml(id, r, droits)).join("")}
@@ -1126,7 +1128,9 @@
     if (fc) fc.onsubmit = (e) => { e.preventDefault(); action(async () => {
       const data = Object.fromEntries(["nom", "nomCourt", "slogan", "ville", "tel", "whatsapp", "logo", "devise"].map((k) => [k, fc[k].value.trim()]));
       data.couleurs = { principale: fc.principale.value, accent: fc.accent.value };
-      await B.majClub(S.clubId, data); S.clubId = null; route();
+      await B.majClub(S.clubId, data);
+      if (fc.couverture.value !== ((S.apparence || {}).couverture || "")) await B.ecrireReglage(S.clubId, "apparence", { couverture: fc.couverture.value });
+      S.clubId = null; route();
     }, "Club mis à jour"); };
     const fr = $("#rg-roles"); if (fr) {
       $("#rg-add").onclick = () => { const id = "role_" + Date.now().toString(36); $("#rg-nouveaux").insertAdjacentHTML("beforeend", roleHtml(id, { nom: "", niveau: 20, droits: [] }, droits)); };
