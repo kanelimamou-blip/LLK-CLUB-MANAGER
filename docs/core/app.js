@@ -90,6 +90,8 @@
     clubs: '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-5h6v5"/>',
     forme: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
     partager: '<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.2 10.8 7.6-4.1M8.2 13.2l7.6 4.1"/>',
+    bilan: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    supporter: '<path d="M12 21s-7-4.4-9.2-9C1.4 8.8 3.4 5 7 5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.6 0 5.6 3.8 4.2 7-2.2 4.6-9.2 9-9.2 9z"/>',
     plus: '<circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/>',
     profil: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1-4 3.9-6 7.5-6s6.5 2 7.5 6"/>',
   };
@@ -106,6 +108,7 @@
     }
     if (moduleOn("sportif") && D.can("effectif")) items.push({ h: `${c}/forme`, t: "Forme", k: "forme" });
     if (moduleOn("sportif") && (D.can("sportif") || D.mesPersonnes().length)) items.push({ h: `${c}/pointage`, t: "Pointage", k: "pointage" });
+    if (moduleOn("finances") && D.can("finances")) items.push({ h: `${c}/bilan`, t: "Bilan", k: "bilan" });
     if (moduleOn("finances") && (D.can("finances") || D.mesPersonnes().length)) items.push({ h: `${c}/caisse`, t: "Caisse", k: "caisse" });
     if (D.can("membres")) items.push({ h: `${c}/membres`, t: "Membres", k: "membres" });
     if (D.can("reglages") || D.president()) items.push({ h: `${c}/reglages`, t: "Réglages", k: "reglages" });
@@ -176,7 +179,7 @@
   function libelleRole() {
     if (B.estAdmin() && !D.membre()) return "Admin plateforme";
     if (!D.membre()) return S.membre ? "Demande en attente" : "Visiteur";
-    const r = S.membre.role; return r === "president" ? "Président" : r === "membre" ? (S.membre.enfants && S.membre.enfants.length ? "Parent" : "Membre") : (S.R[r] && S.R[r].nom) || r;
+    const r = S.membre.role; return r === "president" ? "Président" : r === "membre" ? (S.membre.enfants && S.membre.enfants.length ? "Parent" : ((S.cache.personnes || []).find((x) => x.id === S.membre.personneId) || {}).type === "supporter" ? "Supporter" : "Membre") : (S.R[r] && S.R[r].nom) || r;
   }
   function barreDemo() {
     const ms = S.clubId && B.s.clubs[S.clubId] ? B.s.clubs[S.clubId].membres : B.s.clubs[P.clubParDefaut || "as-exemple"]?.membres || {};
@@ -223,6 +226,7 @@
       if (v === "pointage") { if (parts[3]) sessionStorage.setItem("pt-evt", parts[3]); return vuePointage(parts[4] || ""); }
       if (v === "forme") return vueForme();
       if (v === "caisse") return vueCaisse();
+      if (v === "bilan") return vueBilan();
       if (v === "membres") return vueMembres();
       if (v === "reglages") return vueReglages();
       coquille(`<div class="carte">Page inconnue.</div>`);
@@ -243,7 +247,7 @@
     if (cat) { p.categorieSouhaitee = cat.id; p.sectionSouhaitee = cat.sectionId; }
     return p;
   }
-  const TYPE_FICHE = { "joueur": "joueur", "staff technique": "staff technique", "staff médical": "staff médical", "dirigeant": "dirigeant" };
+  const TYPE_FICHE = { "joueur": "joueur", "staff technique": "staff technique", "staff médical": "staff médical", "dirigeant": "dirigeant", "supporter": "supporter" };
   async function creerFicheDepuisProfil(m) {
     const p = m.profil || {};
     const fiche = { type: TYPE_FICHE[p.profil] || "bénévole", prenom: p.prenom || m.nom || "", nom: p.nom || "", naissance: p.naissance || "", sexe: p.sexe || "",
@@ -308,6 +312,7 @@
       const [pers, convs, echs] = await Promise.all(["personnes", "convocations", "echeances"].map((x) => (moduleOn(pol(x)?.m) ? charger(x) : [])));
       for (const pid of mes) {
         const p = pers.find((x) => x.id === pid);
+        if (p && p.type === "supporter") { html += await carteSupporterHtml(p, echs); continue; }
         const cv = convs.filter((x) => x.personneId === pid).map((x) => ({ ...x, e: evts.find((e) => e.id === x.evenementId) })).filter((x) => x.e && x.e.debut >= today);
         const ec = echs.filter((x) => x.personneId === pid && x.statut !== "payé" && x.statut !== "exonéré");
         if (p && p.type === "joueur") {
@@ -342,6 +347,7 @@
       }
     }
 
+    if (moduleOn("finances")) html += await supportersHtml();
     if (annonces.length) html += `<div class="carte"><h3>Annonces</h3>${annonces.map((a) => `<div class="ligne"><div><b>${esc(a.titre)}</b><br><small>${esc(a.texte || "")}</small></div></div>`).join("")}</div>`;
     html += `<div class="carte"><h3>À venir</h3>${avenir.slice(0, 6).map((e) => { const d = new Date(e.debut); return `<a class="ligne evt" href="#/c/${S.clubId}/f/evenements/${e.id}"><span class="date-puce"><b>${d.getDate()}</b>${d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "")}</span><div class="evt-txt"><b>${esc(nomDoc(e))}</b><small>${esc([nomCat(e), String(e.debut || "").slice(11, 16)].filter(Boolean).join(" · "))}</small></div><span class="type-puce t-${esc(e.type || "")}">${esc(e.type || "")}</span></a>`; }).join("") || `<p class="muted">Rien de prévu.</p>`}</div>`;
     if (joues.length) html += `<div class="carte"><h3>Derniers résultats</h3>${joues.slice(0, 5).map((e) => `<div class="ligne"><span>${esc(nomDoc(e))}</span><b>${e.scoreNous ?? "-"} - ${e.scoreEux ?? "-"}</b></div>`).join("")}</div>`;
@@ -502,6 +508,61 @@
       for (const x of ajoutsEq) { const c = S.cache.categories.find((k) => (k.code || k.nom) === x.dataset.eq); await equipes(c.id, x.dataset.eq, nbEq(x.dataset.eq), +x.value); }
       ["saisons", "sections", "categories", "equipes"].forEach(vider); route();
     }, "Structure créée"); };
+  }
+
+
+  /* ---------- Supporters et finances : formules de supporter, carte numérique, cagnottes, bilan ----------
+     Tout vit dans les collections du modèle (formules, collectes, personnes de type supporter, échéances, reçus) : aucune règle à recoller. */
+  const fmtNum = (n) => String(n || 0).padStart(4, "0");
+  async function carteSupporterHtml(p, echs) {
+    const formules = await charger("formules"), f = formules.find((x) => x.id === p.formuleId) || {};
+    const du = echs.filter((x) => x.personneId === p.id && x.statut !== "payé" && x.statut !== "exonéré");
+    const ajour = !du.length && (!p.validite || p.validite >= new Date().toISOString().slice(0, 10));
+    const coul = f.couleur || "var(--accent)";
+    return `<div class="carte-supp" style="--carte:${esc(coul)}">
+      <div class="cs-haut">${S.club.logo ? `<img src="${esc(S.club.logo)}" alt="">` : ""}<div><small>Carte de supporter</small><b>${esc(S.club.nomCourt || S.club.nom)}</b></div><span class="cs-statut ${ajour ? "ok" : "ko"}">${ajour ? "À jour" : "À renouveler"}</span></div>
+      <div class="cs-nom">${esc(nomDoc(p))}</div>
+      <div class="cs-bas"><div><small>Formule</small><b>${esc(f.nom || "Supporter")}</b></div><div><small>N°</small><b>${fmtNum(parseInt(String(p.numero || p.id).replace(/\D/g, ""), 10) || 1)}</b></div><div><small>Valable jusqu'au</small><b>${p.validite ? dateFr(p.validite) : "fin de saison"}</b></div>
+        <span class="cs-qr">${qrSvg("LLK:" + S.clubId + ":" + p.id)}</span></div></div>
+      ${du.length ? `<div class="carte"><h3>À payer</h3>${du.map((x) => `<div class="ligne"><span>${esc(x.libelle || "Cotisation")} · avant le ${dateFr(x.du)}</span><b>${argent((x.montant || 0) - (x.paye || 0))}</b></div>`).join("")}${f.paiement ? `<p class="muted">${esc(f.paiement)}</p>` : ""}<a class="btn petit clair" href="#/c/${S.clubId}/caisse">Mes reçus</a></div>` : ""}`;
+  }
+  // vitrine : formules pour devenir supporter + cagnottes en cours (lisibles par tous)
+  async function supportersHtml() {
+    const [formules, collectes] = await Promise.all([charger("formules"), charger("collectes")]);
+    const fs_ = formules.filter((f) => f.actif !== false).sort((a, b) => (a.ordre || 0) - (b.ordre || 0) || (a.montant || 0) - (b.montant || 0));
+    const cs = collectes.filter((c) => c.actif !== false && (!c.fin || c.fin >= new Date().toISOString().slice(0, 10)));
+    const supporter = D.mesPersonnes().some((id) => ((S.cache.personnes || []).find((x) => x.id === id) || {}).type === "supporter");
+    let h = "";
+    if (cs.length) h += `<div class="carte"><div class="lien-tete"><h3>Cagnottes</h3>${D.can("finances") ? `<a class="lien" href="#/c/${S.clubId}/m/finances/collectes">Gérer</a>` : ""}</div>${cs.map((c) => { const pc = Math.min(100, Math.round(((c.collecte || 0) / (c.objectif || 1)) * 100));
+      return `<div class="cagnotte"><div class="ligne"><b>${esc(c.titre)}</b><span class="muted">${pc} %</span></div><div class="jauge"><i style="width:${pc}%"></i></div>
+        <small class="muted">${argent(c.collecte || 0)} sur ${argent(c.objectif)}${c.fin ? ` · jusqu'au ${dateFr(c.fin)}` : ""}</small>${c.texte ? `<p>${esc(c.texte)}</p>` : ""}${c.paiement ? `<p class="paye">💛 ${esc(c.paiement)}</p>` : ""}</div>`; }).join("")}</div>`;
+    if (fs_.length && !supporter) h += `<div class="carte" id="devenir"><h3>Devenir supporter</h3><p class="muted">Soutenez le club et recevez votre carte de supporter dans l'appli.</p>
+      <div class="formules">${fs_.map((f) => `<div class="formule" style="--carte:${esc(f.couleur || "var(--accent)")}"><b>${esc(f.nom)}</b><div class="prix">${argent(f.montant)}<small> ${esc(f.periode || "")}</small></div>
+        <ul>${(f.avantages || []).map((a) => `<li>${esc(a)}</li>`).join("")}</ul></div>`).join("")}</div>
+      ${[...new Set(fs_.map((f) => f.paiement).filter(Boolean))].map((t) => `<p class="paye">💛 ${esc(t)}</p>`).join("")}
+      ${!D.membre() ? (B.mode === "firebase" && !B.uid ? `<a class="btn large-btn" href="#/connexion">Je deviens supporter</a>` : `<p class="muted">Envoyez votre demande ci-dessus en choisissant « supporter » dans votre profil.</p>`) : ""}</div>`;
+    return h;
+  }
+  // bilan financier pour le président et le trésorier
+  async function vueBilan() {
+    const [recus, deps, echs, ps, sponsors, collectes, formules] = await Promise.all([B.paiements(S.clubId).catch(() => []), charger("depenses"), charger("echeances"), charger("personnes"), charger("sponsors"), charger("collectes"), charger("formules")]);
+    const vrais = recus.filter((r) => !r.annule && r.mode !== "annulation");
+    const typeDe = (r) => (ps.find((p) => p.id === r.personneId) || {}).type;
+    const src = { "Sponsors": 0, "Cotisations joueurs": 0, "Cotisations supporters": 0, "Cagnottes et dons": 0, "Autres recettes": 0 };
+    vrais.forEach((r) => { const t = typeDe(r); const k = /sponsor|partenaire/i.test(r.motif || "") ? "Sponsors" : /cagnotte|\bdons?\b/i.test(r.motif || "") ? "Cagnottes et dons" : t === "joueur" ? "Cotisations joueurs" : t === "supporter" ? "Cotisations supporters" : "Autres recettes"; src[k] += r.montant || 0; });
+    const recettes = vrais.reduce((a, r) => a + (r.montant || 0), 0), depenses = deps.reduce((a, d) => a + (d.montant || 0), 0);
+    const parPoste = {}; deps.forEach((d) => (parPoste[d.poste || "autre"] = (parPoste[d.poste || "autre"] || 0) + (d.montant || 0)));
+    const impayes = echs.filter((e) => e.statut !== "payé" && e.statut !== "exonéré").reduce((a, e) => a + (e.montant || 0) - (e.paye || 0), 0);
+    const supp = ps.filter((p) => p.type === "supporter"), suppOk = supp.filter((p) => !echs.some((e) => e.personneId === p.id && e.statut !== "payé" && e.statut !== "exonéré"));
+    const spons = sponsors.reduce((a, x) => a + (x.montant || 0), 0);
+    const barres = (o, total) => Object.entries(o).filter(([, v]) => v).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="barre-l"><span>${esc(k)}</span><div class="jauge"><i style="width:${Math.max(3, Math.round((v / (total || 1)) * 100))}%"></i></div><b>${argent(v)}</b></div>`).join("") || `<p class="muted">Rien pour l'instant.</p>`;
+    coquille(`<h2>Bilan financier</h2><p class="muted">Saison en cours · tout ce qui est encaissé avec un reçu et chaque dépense saisie.</p>
+      <div class="tuiles stats bilan"><div class="tuile"><b>${argent(recettes - depenses)}</b><span>Solde</span></div><div class="tuile"><b>${argent(recettes)}</b><span>Recettes</span></div><div class="tuile"><b>${argent(depenses)}</b><span>Dépenses</span></div><div class="tuile"><b>${argent(impayes)}</b><span>Impayés à relancer</span></div></div>
+      <div class="carte"><h3>D'où vient l'argent</h3>${barres(src, recettes)}${spons ? `<p class="muted">Contrats sponsors signés pour la saison : <b>${argent(spons)}</b></p>` : ""}</div>
+      <div class="carte"><h3>Où il va</h3>${barres(parPoste, depenses)}</div>
+      <div class="carte"><h3>Supporters</h3><div class="tuiles mini-tuiles"><div class="tuile"><b>${supp.length}</b><span>Supporters</span></div><div class="tuile"><b>${suppOk.length}</b><span>À jour</span></div><div class="tuile"><b>${formules.length}</b><span>Formules</span></div></div>
+        <a class="btn petit clair" href="#/c/${S.clubId}/m/finances/formules">Gérer les formules</a></div>
+      ${collectes.length ? `<div class="carte"><h3>Cagnottes</h3>${collectes.map((c) => `<div class="barre-l"><span>${esc(c.titre)}</span><div class="jauge"><i style="width:${Math.min(100, Math.round(((c.collecte || 0) / (c.objectif || 1)) * 100))}%"></i></div><b>${argent(c.collecte || 0)} / ${argent(c.objectif)}</b></div>`).join("")}</div>` : ""}`, "Bilan");
   }
 
   /* ---------- Module : onglets des collections lisibles, puis liste filtrable ---------- */
@@ -700,12 +761,15 @@
     const fin = D.can("finances");
     const [ps, echs] = await Promise.all([charger("personnes"), charger("echeances")]);
     const recus = await B.paiements(S.clubId).catch(() => []);
+    const cags = fin ? (await charger("collectes")).filter((c) => c.actif !== false) : [];
     let html = "";
     if (fin) html += `<form class="carte" id="enc"><h3>Encaisser</h3><div class="grille2">
       <label>Personne<select name="personneId"><option value="">(autre payeur)</option>${ps.map((p) => `<option value="${p.id}">${esc(nomDoc(p))}</option>`).join("")}</select></label>
       <label>Échéance<select name="echeanceId"><option value="">(aucune)</option>${echs.filter((e) => e.statut !== "payé").map((e) => `<option value="${e.id}" data-p="${e.personneId}">${esc(nomDoc(ps.find((p) => p.id === e.personneId)) + " · " + (e.libelle || "") + " · reste " + argent((e.montant || 0) - (e.paye || 0)))}</option>`).join("")}</select></label>
       <label>Montant<input name="montant" type="number" inputmode="numeric" required></label>
       <label>Mode<select name="mode">${["espèces", "wave", "orange money", "virement", "chèque"].map((m) => `<option>${m}</option>`).join("")}</select></label>
+      <label>Cagnotte<select name="collecteId"><option value="">(aucune)</option>${cags.map((c) => `<option value="${c.id}">${esc(c.titre)}</option>`).join("")}</select></label>
+      <label>Nom du payeur (s'il n'a pas de fiche)<input name="payeur" placeholder="ex. un supporter, une entreprise"></label>
       <label class="large">Motif<input name="motif" placeholder="Cotisation, tournoi, maillot…"></label></div>
       <button class="btn">Encaisser et numéroter le reçu</button></form>`;
     html += `<div class="carte"><h3>${fin ? "Reçus" : "Mes reçus"}</h3>${recus.map((r) => `<div class="ligne"><div><b>Reçu n° ${r.numero}</b> · ${esc(nomDoc(ps.find((p) => p.id === r.personneId)) || r.payeur || "")}<br><small>${esc(r.motif || "")} · ${esc(r.mode)} · ${esc(String(r.date || "").slice(0, 10))}</small></div><b>${argent(r.montant)}</b></div>`).join("") || `<p class="muted">Aucun reçu.</p>`}</div>`;
@@ -714,7 +778,10 @@
       const montant = Math.round(Number(f.montant.value)); if (!montant) throw new Error("montant manquant");
       const ech = echs.find((x) => x.id === f.echeanceId.value);
       const pers = ps.find((p) => p.id === (f.personneId.value || (ech && ech.personneId)));
-      const n = await B.encaisser(S.clubId, { personneId: pers ? pers.id : "", echeanceId: ech ? ech.id : "", montant, mode: f.mode.value, motif: f.motif.value.slice(0, 120), sectionId: (pers || {}).sectionId || "", categorieId: (pers || {}).categorieId || "" });
+      const cag = cags.find((c) => c.id === f.collecteId.value);
+      const motif = ((cag ? "Cagnotte : " + cag.titre + (f.motif.value ? " · " : "") : "") + f.motif.value).slice(0, 120);
+      const n = await B.encaisser(S.clubId, { personneId: pers ? pers.id : "", echeanceId: ech ? ech.id : "", montant, mode: f.mode.value, motif, payeur: f.payeur.value.trim().slice(0, 80), sectionId: (pers || {}).sectionId || "", categorieId: (pers || {}).categorieId || "" });
+      if (cag) { await B.ecrire(S.clubId, "collectes", cag.id, { collecte: (cag.collecte || 0) + montant }); vider("collectes"); }
       if (ech) { const paye = (ech.paye || 0) + montant; await B.ecrire(S.clubId, "echeances", ech.id, { paye, statut: paye >= ech.montant ? "payé" : "partiel" }); vider("echeances"); }
       toast(`Reçu n° ${n} enregistré`); vueCaisse();
     }); };

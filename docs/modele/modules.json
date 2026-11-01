@@ -1,6 +1,6 @@
 {
   "_lisezmoi": "LE fichier du modèle. Chaque module déclare ses collections Firestore (sous clubs/{clubId}/), qui peut lire, quel droit faut-il pour écrire, et les champs. Après une modification : npm run regles (réécrit la politique dans firestore.rules). L'appli construit ses écrans (listes + fiches) à partir de ce même fichier.",
-  "version": 4,
+  "version": 5,
   "_aide": {
     "lire": "public = tout le monde (vitrine) ; public? = public si le document a public=true, sinon membres ; membre = membres actifs du club ; sinon le nom d'un droit (limité au périmètre du membre)",
     "ecrire": "le droit nécessaire pour créer, modifier, supprimer (toujours limité au périmètre : sections et catégories du membre)",
@@ -409,7 +409,8 @@
                 "staff technique",
                 "staff médical",
                 "dirigeant",
-                "bénévole"
+                "bénévole",
+                "supporter"
               ],
               "label": "Type",
               "requis": true
@@ -527,6 +528,17 @@
                 "indisponible"
               ],
               "label": "Disponibilité (staff)"
+            },
+            {
+              "id": "formuleId",
+              "type": "ref",
+              "ref": "formules",
+              "label": "Formule de supporter"
+            },
+            {
+              "id": "validite",
+              "type": "date",
+              "label": "Carte valable jusqu'au"
             },
             {
               "id": "uid",
@@ -1319,6 +1331,121 @@
               "id": "logo",
               "type": "image",
               "label": "Logo"
+            }
+          ]
+        },
+        {
+          "id": "formules",
+          "nom": "Formules supporters",
+          "lire": "public",
+          "ecrire": "finances",
+          "colonnes": [
+            "nom",
+            "montant",
+            "periode"
+          ],
+          "champs": [
+            {
+              "id": "nom",
+              "type": "texte",
+              "label": "Nom (ex. Supporter Or)",
+              "requis": true
+            },
+            {
+              "id": "montant",
+              "type": "montant",
+              "label": "Prix",
+              "requis": true
+            },
+            {
+              "id": "periode",
+              "type": "choix",
+              "options": [
+                "par mois",
+                "par saison",
+                "par match"
+              ],
+              "label": "Période"
+            },
+            {
+              "id": "avantages",
+              "type": "liste",
+              "label": "Avantages (un par ligne)"
+            },
+            {
+              "id": "paiement",
+              "type": "texte",
+              "label": "Comment payer (ex. Wave 77 000 00 00)"
+            },
+            {
+              "id": "couleur",
+              "type": "texte",
+              "label": "Couleur de la carte (ex. #D4AF37)"
+            },
+            {
+              "id": "ordre",
+              "type": "nombre",
+              "label": "Ordre"
+            },
+            {
+              "id": "actif",
+              "type": "booleen",
+              "label": "Proposée"
+            }
+          ]
+        },
+        {
+          "id": "collectes",
+          "nom": "Cagnottes",
+          "lire": "public",
+          "ecrire": "finances",
+          "colonnes": [
+            "titre",
+            "objectif",
+            "collecte"
+          ],
+          "champs": [
+            {
+              "id": "titre",
+              "type": "texte",
+              "label": "Pour quoi (ex. Bus du déplacement)",
+              "requis": true
+            },
+            {
+              "id": "objectif",
+              "type": "montant",
+              "label": "Objectif",
+              "requis": true
+            },
+            {
+              "id": "collecte",
+              "type": "montant",
+              "label": "Déjà collecté"
+            },
+            {
+              "id": "fin",
+              "type": "date",
+              "label": "Jusqu'au"
+            },
+            {
+              "id": "texte",
+              "type": "texteLong",
+              "label": "Message aux supporters"
+            },
+            {
+              "id": "paiement",
+              "type": "texte",
+              "label": "Comment participer (ex. Wave 77 000 00 00)"
+            },
+            {
+              "id": "image",
+              "type": "image",
+              "label": "Image"
+            },
+            {
+              "id": "actif",
+              "type": "booleen",
+              "label": "En cours"
             }
           ]
         }

@@ -353,3 +353,37 @@ h4 { font-family: var(--font); }
 .photo-num { position: relative; width: 88px; height: 88px; }
 .photo-num img { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); }
 .photo-num b { position: absolute; right: -4px; bottom: -4px; background: var(--accent); color: var(--on-accent); font: 800 18px var(--display); border-radius: 10px; padding: 2px 7px; }
+/* Supporters : carte numérique, formules, cagnottes ; bilan */
+.carte-supp { --carte: var(--accent); position: relative; overflow: hidden; border-radius: 22px; padding: 18px 18px 16px; margin-bottom: 14px; color: #fff;
+  background: radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--carte) 55%, transparent), transparent 60%), linear-gradient(140deg, var(--deep), color-mix(in srgb, var(--club) 80%, #000));
+  box-shadow: 0 14px 34px rgba(0,0,0,.22); border: 1px solid color-mix(in srgb, var(--carte) 60%, transparent); }
+.cs-haut { display: flex; align-items: center; gap: 10px; }
+.cs-haut img { width: 44px; height: 44px; object-fit: contain; }
+.cs-haut small { display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .75; }
+.cs-haut b { font: 800 20px var(--display); text-transform: uppercase; }
+.cs-statut { margin-left: auto; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 99px; }
+.cs-statut.ok { background: #22A35A; } .cs-statut.ko { background: #D9362B; }
+.cs-nom { font: 800 34px/1 var(--display); text-transform: uppercase; margin: 22px 0 16px; letter-spacing: .02em; }
+.cs-bas { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 12px; align-items: end; }
+.cs-bas small { display: block; font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .08em; }
+.cs-bas b { font: 700 17px var(--display); color: var(--carte); }
+.cs-qr { width: 64px; background: #fff; border-radius: 10px; padding: 3px; }
+.cs-qr svg { width: 100%; height: auto; display: block; }
+.formules { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0 12px; }
+.formule { --carte: var(--accent); border: 2px solid var(--carte); border-radius: 16px; padding: 12px 14px; }
+.formule > b { font: 800 20px var(--display); text-transform: uppercase; }
+.formule .prix { font: 800 26px var(--display); color: var(--club); margin: 2px 0 4px; }
+.formule .prix small { font: 600 12px var(--font); color: var(--muted); }
+.formule ul { margin: 0 0 6px; padding-left: 18px; font-size: 13.5px; }
+.cagnotte { padding: 8px 0 12px; border-bottom: 1px solid var(--line); } .cagnotte:last-child { border-bottom: 0; }
+.cagnotte .ligne { border: 0; padding: 4px 0; }
+.cagnotte p { margin: 6px 0 0; font-size: 14px; }
+.cagnotte .paye { font-weight: 600; }
+.jauge { height: 10px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin: 4px 0; }
+.jauge i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--club), var(--accent)); }
+.barre-l { display: grid; grid-template-columns: minmax(90px, 32%) 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 14px; }
+.barre-l b { font-size: 13.5px; white-space: nowrap; }
+
+.formules { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.tuiles.stats .tuile { min-width: 0; }
+.tuiles.bilan .tuile b { font-size: clamp(18px, 5.4vw, 26px); white-space: nowrap; }
