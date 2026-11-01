@@ -242,6 +242,7 @@
       if (v === "cotiser") return vueCotiser();
       if (v === "rejoindre") return vueRejoindre();
       if (v === "formation") return vueFormation();
+      if (v === "bulletin") { if (!parts[3]) return coquille(`<div class="carte">Bulletin introuvable.</div>`); sessionStorage.removeItem("bul-t"); return vueBulletin(parts[3]); }
       if (v === "membres") return vueMembres();
       if (v === "reglages") return vueReglages();
       coquille(`<div class="carte">Page inconnue.</div>`);
@@ -345,7 +346,7 @@
             <div class="rep">${["présent", "absent", "incertain"].map((r) => `<button class="mini ${x.reponse === r ? "on" : ""}" data-conv="${x.id}" data-rep="${r}">${r}</button>`).join("")}</div></div>`).join("") : `<p class="muted">Pas de convocation à venir.</p>`}
           ${ec.length ? `<h4>À payer</h4>` + ec.map((x) => `<div class="ligne"><span>${esc(x.libelle || "Cotisation")} · avant le ${dateFr(x.du)}</span><b>${argent((x.montant || 0) - (x.paye || 0))}</b></div>`).join("") : ""}
           ${p && p.type === "joueur" ? await perfHtml(pid) : ""}
-          <div class="actions"><a class="btn petit" href="#/c/${S.clubId}/f/personnes/${pid}">Voir la fiche</a>${moduleOn("sportif") ? `<a class="btn petit clair" href="#/c/${S.clubId}/pointage">Pointer à l'arrivée</a>` : ""}</div></div>`;
+          <div class="actions"><a class="btn petit" href="#/c/${S.clubId}/f/personnes/${pid}">Voir la fiche</a>${p && p.type === "joueur" ? `<a class="btn petit clair" href="#/c/${S.clubId}/bulletin/${pid}">Bulletin</a>` : ""}${moduleOn("sportif") ? `<a class="btn petit clair" href="#/c/${S.clubId}/pointage">Pointer à l'arrivée</a>` : ""}</div></div>`;
       }
     }
 
@@ -825,6 +826,46 @@
     app.querySelectorAll("[data-filtre]").forEach((a) => (a.onclick = () => { const c = cats.find((x) => x.id === a.dataset.filtre); sessionStorage.setItem("filtre", JSON.stringify({ sec: c.sectionId, cat: c.id })); }));
   }
 
+  /* ---------- Bulletin trimestriel du jeune : progression par critère, présence, matchs, forme, objectifs du prochain trimestre ----------
+     Lisible par le staff et par le joueur ou son parent (évaluations et présences sont « perso ») ; imprimable en PDF. */
+  async function vueBulletin(pid) {
+    const [ps, evals, pres, stats, evts] = await Promise.all(["personnes", "evaluations", "presences", "stats", "evenements"].map((x) => (moduleOn(pol(x)?.m) ? charger(x) : [])));
+    const p = ps.find((x) => x.id === pid); if (!p) return coquille(`<div class="carte">Bulletin introuvable ou réservé.</div>`);
+    const decal = +(sessionStorage.getItem("bul-t") || 0);
+    const fin = new Date(); fin.setMonth(fin.getMonth() - 3 * decal); const debut = new Date(fin); debut.setMonth(debut.getMonth() - 3);
+    const d0 = jour(debut), d1 = jour(fin), dans = (d) => d && d.slice(0, 10) > d0 && d.slice(0, 10) <= d1;
+    const cat = (S.cache.categories || []).find((c) => c.id === p.categorieId) || {};
+    const F = await fichierModele("formation.json"), ph = (F.phases || []).find((x) => x.ages.includes(cat.code || cat.nom)) || null;
+    const ev = evals.filter((e) => e.personneId === pid).sort((a, b) => (a.date < b.date ? 1 : -1));
+    const der = ev.find((e) => dans(e.date)), avant = der ? ev.find((e) => e.date < der.date) : null;
+    const evDate = (id) => (evts.find((e) => e.id === id) || {}).debut || "";
+    const pr = pres.filter((x) => x.personneId === pid && dans(evDate(x.evenementId))), ok = pr.filter((x) => x.statut === "présent" || x.statut === "retard").length;
+    const st = stats.filter((x) => x.personneId === pid && dans(evDate(x.evenementId)));
+    const fo = Object.entries(p.forme || {}).filter(([d]) => dans(d)).map(([, f]) => scoreForme(f)).filter((x) => x != null);
+    const fleche = (k, v) => { const a = avant && avant.criteres ? avant.criteres[k] : null; return typeof a !== "number" || typeof v !== "number" ? "" : v > a ? `<i class="up">▲ +${v - a}</i>` : v < a ? `<i class="down">▼ ${v - a}</i>` : `<i class="eq">=</i>`; };
+    const crit = der ? Object.entries(der.criteres || {}).filter(([, v]) => typeof v === "number") : [];
+    const moy = crit.length ? (crit.reduce((s, [, v]) => s + v, 0) / crit.length).toFixed(1) : "–", ech = crit.some(([, v]) => v > 5) ? 10 : 5;
+    const trim = `${debut.toLocaleDateString("fr-FR", { month: "short", year: "numeric" })} → ${fin.toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}`;
+    const url = location.origin + location.pathname + `#/c/${S.clubId}/bulletin/${pid}`;
+    const telParent = String((p.parents || [])[0] || "").match(/(\+?\d[\d\s]{7,})/);
+    coquille(`<div class="bulletin">
+      <div class="bul-tete">${S.club.logo ? `<img class="bul-logo" src="${esc(S.club.logo)}" alt="">` : ""}<div><span class="sur">${esc(S.club.nom)} · Bulletin du trimestre</span><h2>${esc(nomDoc(p))}</h2>
+        <small>${esc([cat.nom, p.poste, ph && ph.nom].filter(Boolean).join(" · "))} · ${esc(trim)}</small></div>${avatar(p, "grand")}</div>
+      <div class="tuiles mini-tuiles bul-chiffres"><div class="tuile"><b>${moy}</b><span>note /${ech}</span></div><div class="tuile"><b>${pr.length ? Math.round((ok / pr.length) * 100) + " %" : "–"}</b><span>présence (${ok}/${pr.length})</span></div>
+        <div class="tuile"><b>${st.length}</b><span>matchs · ${st.reduce((s, x) => s + (x.minutes || 0), 0)} min</span></div><div class="tuile"><b>${fo.length ? (fo.reduce((a, b) => a + b, 0) / fo.length).toFixed(1) : "–"}</b><span>forme moyenne</span></div></div>
+      <div class="carte"><h3>Progression${der ? ` <small class="muted">évaluation du ${dateFr(der.date)}${avant ? `, comparée au ${dateFr(avant.date)}` : ""}</small>` : ""}</h3>
+        ${crit.map(([k, v]) => `<div class="barre-l crit"><span>${esc(k)}</span><div class="jauge"><i style="width:${(v / ech) * 100}%"></i></div><b>${v}/${ech} ${fleche(k, v)}</b></div>`).join("") || `<p class="muted">Pas d'évaluation ce trimestre.${D.can("sportif") ? ` <a href="#/c/${S.clubId}/f/evaluations/nouveau" data-pre='${esc(JSON.stringify({ personneId: pid, sectionId: p.sectionId, categorieId: p.categorieId, date: jour(), criteres: Object.fromEntries(((ph && ph.criteres) || ["Technique", "Tactique", "Physique", "Mental"]).map((k) => [k, ""])) }))}'>Évaluer maintenant</a>` : ""}</p>`}
+        ${der && der.tests && Object.keys(der.tests).length ? `<h4>Tests physiques</h4><div class="puces">${Object.entries(der.tests).map(([k, v]) => `<span class="puce">${esc(k)} : <b>${esc(v)}</b></span>`).join("")}</div>` : ""}
+        ${der && der.commentaire ? `<h4>Le mot du coach</h4><p class="mot">« ${esc(der.commentaire)} »</p>` : ""}</div>
+      ${ph ? `<div class="carte"><h3>Objectifs du prochain trimestre <small class="muted">${esc(ph.nom)}</small></h3><ul class="obj">${ph.objectifs.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div>` : ""}
+      <div class="actions sans-impression"><button type="button" class="btn" id="bul-pdf">Imprimer / PDF</button>
+        <a class="btn clair" target="_blank" rel="noopener" href="https://wa.me/${telParent ? waNum(telParent[1]) : ""}?text=${encodeURIComponent(`${S.club.nom} : le bulletin du trimestre de ${nomDoc(p)} est disponible dans l'appli du club : ${url}`)}">Envoyer aux parents (WhatsApp)</a>
+        <button type="button" class="btn clair" id="bul-prec">← Trimestre précédent</button>${decal ? `<button type="button" class="btn clair" id="bul-suiv">Trimestre suivant →</button>` : ""}</div></div>`, "Bulletin");
+    $("#bul-pdf").onclick = () => window.print();
+    $("#bul-prec").onclick = () => { sessionStorage.setItem("bul-t", decal + 1); vueBulletin(pid); };
+    const sv = $("#bul-suiv"); if (sv) sv.onclick = () => { sessionStorage.setItem("bul-t", decal - 1); vueBulletin(pid); };
+  }
+
   // bilan financier pour le président et le trésorier
   async function vueBilan() {
     const [recus, deps, echs, ps, sponsors, collectes, formules] = await Promise.all([B.paiements(S.clubId).catch(() => []), charger("depenses"), charger("echeances"), charger("personnes"), charger("sponsors"), charger("collectes"), charger("formules")]);
@@ -940,7 +981,7 @@
     const secs = (S.cache.sections || []).filter((s) => total && (D.president() || D.perimetre().includes("*") || D.perimetre().includes(s.id) || (S.cache.categories || []).some((c) => c.sectionId === s.id && D.perimetre().includes(c.id))));
     const cats = (S.cache.categories || []);
     const liens = nouveau ? "" : await liensHtml(colId, d, id);
-    const forme = !nouveau && colId === "personnes" && d.type === "joueur" && moduleOn("sportif") ? await ficheFormeHtml({ ...d, id }) : "";
+    const forme = !nouveau && colId === "personnes" && d.type === "joueur" && moduleOn("sportif") ? `<a class="btn petit accent bul-lien" href="#/c/${S.clubId}/bulletin/${id}">Bulletin du trimestre</a>` + (await ficheFormeHtml({ ...d, id })) : "";
     coquille(`${forme}<form class="carte fiche" id="fiche">
       <div class="fiche-tete"><a href="javascript:history.back()" class="lien">← Retour</a><h2>${esc(nouveau ? "Nouveau : " + col.nom : nomDoc(d))}</h2></div>
       ${col.categorie ? `<div class="grille2">

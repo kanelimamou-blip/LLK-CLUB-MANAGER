@@ -468,3 +468,24 @@ img.zoomable.zoom { position: fixed; inset: 0; z-index: 99; width: 100vw; height
 .phase h4 { margin: 12px 0 6px; }
 .obj { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .phase .puces .puce { background: var(--surface-2); color: var(--ink); }
+
+/* ---------- Bulletin ---------- */
+.bul-tete { display: flex; gap: 14px; align-items: center; background: var(--deep); color: #fff; border-radius: 22px; padding: 18px; margin-bottom: 14px; }
+.bul-tete > div { flex: 1; } .bul-tete h2 { font: 800 30px/1 var(--display); text-transform: uppercase; margin: 4px 0; }
+.bul-tete .sur { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.bul-tete small { opacity: .8; } .bul-logo { width: 54px; height: 54px; object-fit: contain; }
+.crit b { white-space: nowrap; } .crit i { font-style: normal; font-size: 12px; margin-left: 4px; }
+.crit .up { color: #1f9d55; } .crit .down { color: #d64545; } .crit .eq { color: var(--muted); }
+.mot { font-style: italic; font-size: 16px; }
+.bul-lien { margin-bottom: 12px; }
+@media print {
+  .top, .nav, .fab, .feuille, .demo, .sans-impression, .pied, .maj-modele { display: none !important; }
+  body, .main { background: #fff !important; } .cadre, .main { display: block !important; margin: 0 !important; padding: 0 !important; }
+  .carte, .tuile { box-shadow: none !important; border: 1px solid #ddd; break-inside: avoid; }
+  .bul-tete { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .jauge i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.bul-tete small { color: #ffffffcc !important; opacity: 1; }
+.bul-tete .avatar { background: var(--accent); color: var(--on-accent); }
+.tuiles.bul-chiffres { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 640px) { .tuiles.bul-chiffres { grid-template-columns: repeat(4, 1fr); } }
