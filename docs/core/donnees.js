@@ -137,19 +137,20 @@
     estAdmin() { return !!Fire.uid && (P.admins || []).includes(Fire.uid); },
     async modele() {
       if (Fire.modele_) return Fire.modele_;
-      const s = await db.doc("plateforme/modele").get();
-      if (s.exists) return (Fire.modele_ = s.data());
+      // règles pas encore collées (base fermée) : on lit les fichiers, l'appli s'ouvre quand même
+      const s = await db.doc("plateforme/modele").get().catch(() => null);
+      if (s && s.exists) return (Fire.modele_ = s.data());
       // premier lancement : pas encore publié, l'appli lit les fichiers (l'admin publie depuis #admin > Modèle)
       const [mods, roles] = await Promise.all([json("modules.json"), json("roles.json")]);
       return (Fire.modele_ = { ...Modele.compiler(mods, roles).doc, nonPublie: true });
     },
     async sports() {
-      const s = await db.collection("sports").get();
-      if (!s.empty) return Object.fromEntries(s.docs.map((d) => [d.id, d.data()]));
+      const s = await db.collection("sports").get().catch(() => null);
+      if (s && !s.empty) return Object.fromEntries(s.docs.map((d) => [d.id, d.data()]));
       const f = await json("sports.json"); return Object.fromEntries(Object.entries(f).filter(([k]) => !k.startsWith("_")));
     },
-    async clubs() { return docs(await db.collection("clubs").get()); },
-    async club(c) { const s = await db.doc("clubs/" + c).get(); return s.exists ? { id: c, ...s.data() } : null; },
+    async clubs() { try { return docs(await db.collection("clubs").get()); } catch { return []; } },
+    async club(c) { const s = await db.doc("clubs/" + c).get().catch(() => ({ exists: false })); return s.exists ? { id: c, ...s.data() } : null; },
     async monMembre(c) { if (!Fire.uid) return null; try { const s = await db.doc(`clubs/${c}/membres/${Fire.uid}`).get(); return s.exists ? s.data() : null; } catch { return null; } },
     async roles(c) { const s = await db.doc(`clubs/${c}/reglages/roles`).get(); return s.exists ? s.data().roles : (await Fire.modele()).roles; },
     // Une requête par façon d'avoir le droit de lire (les règles refusent une requête trop large), puis fusion.
