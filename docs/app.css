@@ -113,3 +113,11 @@ details summary { cursor: pointer; margin: 6px 0; }
 .pastille { width: 42px; height: 42px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
 .installer { margin-top: 12px; background: var(--accent); color: var(--on-accent); }
 .pied { text-align: center; color: var(--muted); font-size: 12px; margin: 18px 0 0; letter-spacing: .05em; }
+.connexion { max-width: 420px; margin: 0 auto 12px; }
+.actions.centre { justify-content: center; }
+.compte .lien + .lien { margin-left: 10px; }
+.mini-tuiles { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.mini-tuiles .tuile { padding: 8px 10px; }
+.mini-tuiles .tuile b { font-size: 18px; }
+.profil-det { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px; margin: 6px 0 10px; }
+.profil-det span { display: flex; flex-direction: column; }

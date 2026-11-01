@@ -31,7 +31,14 @@
       for (const dr of r.droits || []) if (!(dr in droits)) erreurs.push(`rôle ${id} : droit « ${dr} » inconnu`);
       R[id] = { nom: r.nom, niveau: r.niveau, droits: r.droits || [] };
     }
-    return { erreurs, doc: { politique, roles: R, modules: mods, version: Date.now() } };
+    // fiche du compte : champs demandés après la première connexion
+    const SYSTEME = ["tel", "created", "lastSeen", "active", "clubs", "complet"];
+    const compte = ((mods.compte && mods.compte.champs) || []).map((c) => c.id);
+    for (const c of compte) {
+      if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(c || "")) erreurs.push(`compte : champ « ${c} » (lettres sans accent)`);
+      if (SYSTEME.includes(c)) erreurs.push(`compte : « ${c} » est réservé`);
+    }
+    return { erreurs, doc: { politique, roles: R, compte, modules: mods, version: Date.now() } };
   }
   g.Modele = { compiler, RESERVEES };
 })(typeof window !== "undefined" ? window : globalThis);

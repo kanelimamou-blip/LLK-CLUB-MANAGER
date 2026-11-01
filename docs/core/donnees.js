@@ -17,7 +17,7 @@
   const datesDemo = (o) => (Array.isArray(o) ? o.map(datesDemo) : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, datesDemo(v)])) : dateDemo(o));
 
   /* ================= Mode démo ================= */
-  const CLE = "club-demo-v1";
+  const CLE = "club-demo-v2";
   const Demo = {
     mode: "demo", s: null, uid: "demo-president",
     sauver() { localStorage.setItem(CLE, JSON.stringify(Demo.s)); },
@@ -35,6 +35,8 @@
       Demo.uid = localStorage.getItem(CLE + "-profil") || "demo-president";
     },
     reinitialiser() { localStorage.removeItem(CLE); localStorage.removeItem(CLE + "-profil"); location.reload(); },
+    get compte() { return JSON.parse(localStorage.getItem(CLE + "-compte-" + Demo.uid) || "null") || { tel: "", complet: false }; },
+    async majCompte(data) { localStorage.setItem(CLE + "-compte-" + Demo.uid, JSON.stringify({ ...Demo.compte, ...data })); },
     profil(uid) { Demo.uid = uid; localStorage.setItem(CLE + "-profil", uid); },
     estAdmin() { return Demo.uid === "demo-admin"; },
     async modele() { return Demo.s.modele; },
@@ -80,6 +82,8 @@
     async majLicence(c, data) { Object.assign(Demo.s.clubs[c].club, data); Demo.sauver(); },
     async nommerPresident(c, uid, nom) { Demo.s.clubs[c].membres[uid] = { nom, tel: "", role: "president", perimetre: ["*"], personneId: "", enfants: [], actif: true }; Demo.sauver(); },
     async publierSports(map) { Demo.sports_ = map; },
+    async reglagesPlateforme() { return JSON.parse(localStorage.getItem(CLE + "-plateforme") || "{}"); },
+    async majReglagesPlateforme(data) { localStorage.setItem(CLE + "-plateforme", JSON.stringify({ ...(await Demo.reglagesPlateforme()), ...data })); },
     async demanderAdhesion() { throw new Error("En démo, changez de profil avec la barre du haut."); },
   };
 
@@ -96,21 +100,39 @@
     async init() {
       for (const f of ["firebase-app-compat.js", "firebase-auth-compat.js", "firebase-firestore-compat.js"]) await charger(SDK + f);
       firebase.initializeApp(P.FIREBASE_CONFIG);
-      auth = firebase.auth(); db = firebase.firestore();
+      auth = firebase.auth(); db = firebase.firestore(); auth.languageCode = "fr";
       // EMULATEUR: true dans config.js = tests en local sur les émulateurs Firebase
       if (P.EMULATEUR) { auth.useEmulator("http://127.0.0.1:9099"); db.useEmulator("127.0.0.1", 8080); }
       await new Promise((ok) => auth.onAuthStateChanged((u) => { Fire.uid = u ? u.uid : null; ok(); }));
       if (Fire.uid) await Fire.ficheCompte();
     },
-    // users/{uid} : créée à la première connexion, mise à jour à chaque visite
+    // users/{uid} : créée à la première connexion (téléphone vérifié par SMS), puis la fiche est complétée par le compte
     async ficheCompte() {
-      const u = auth.currentUser; const ref = db.doc("users/" + u.uid); const s = await ref.get();
-      if (!s.exists) await ref.set({ nom: (u.displayName || "").slice(0, 80), email: (u.email || "").slice(0, 120), tel: "", created: ts(), lastSeen: ts(), active: true, clubs: [] });
-      else if (s.data().active) await ref.update({ lastSeen: ts() });
-      Fire.compte = (await ref.get()).data();
+      const u = auth.currentUser; const ref = db.doc("users/" + u.uid);
+      try {
+        const s = await ref.get();
+        const telCode = /^\d+@tel\.llk\.app$/.test(u.email || "") ? "+" + u.email.split("@")[0] : "";
+        if (!s.exists) await ref.set({ tel: u.phoneNumber || telCode, created: ts(), lastSeen: ts(), active: true, clubs: [], complet: false });
+        else if (s.data().active) await ref.update({ lastSeen: ts() });
+        Fire.compte = (await ref.get()).data();
+      } catch (e) { console.warn("fiche du compte", e); Fire.compte = null; } // modèle pas encore publié : l'admin le publie d'abord
     },
+    async majCompte(data) { await db.doc("users/" + Fire.uid).update({ ...data, lastSeen: ts() }); Fire.compte = { ...Fire.compte, ...data }; },
+    // Connexion par SMS : un reCAPTCHA invisible, puis le code reçu
+    async envoyerCode(tel, boutonId) {
+      if (!Fire.recaptcha) Fire.recaptcha = new firebase.auth.RecaptchaVerifier(boutonId, { size: "invisible" });
+      Fire.confirmation = await auth.signInWithPhoneNumber(tel, Fire.recaptcha);
+    },
+    async confirmerCode(code) { await Fire.confirmation.confirm(code); location.reload(); },
+    // Téléphone + code secret (gratuit, sans SMS) : compte Firebase e-mail/mot de passe sur une adresse technique
+    async connexionCode(tel, code, creer) {
+      const email = tel.replace(/\D/g, "") + "@tel.llk.app";
+      await (creer ? auth.createUserWithEmailAndPassword(email, code) : auth.signInWithEmailAndPassword(email, code));
+      location.reload();
+    },
+    async reglagesPlateforme() { try { const s = await db.doc("plateforme/reglages").get(); return s.exists ? s.data() : {}; } catch { return {}; } },
+    async majReglagesPlateforme(data) { await db.doc("plateforme/reglages").set(data, { merge: true }); },
     async connecterGoogle() { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); location.reload(); },
-    async connecterEmail(email, mdp, creer) { await (creer ? auth.createUserWithEmailAndPassword(email, mdp) : auth.signInWithEmailAndPassword(email, mdp)); location.reload(); },
     async deconnecter() { await auth.signOut(); location.reload(); },
     estAdmin() { return !!Fire.uid && (P.admins || []).includes(Fire.uid); },
     async modele() {
@@ -155,8 +177,8 @@
     async supprimer(c, col, id) { await db.doc(`clubs/${c}/${col}/${id}`).delete(); },
     async membres(c) { return (await db.collection(`clubs/${c}/membres`).get()).docs.map((d) => ({ uid: d.id, ...d.data() })); },
     async ecrireMembre(c, uid, data) { await db.doc(`clubs/${c}/membres/${uid}`).update({ ...data, ...trace() }); },
-    async demanderAdhesion(c, nom, tel, message) {
-      await db.doc(`clubs/${c}/membres/${Fire.uid}`).set({ nom, tel, role: "membre", perimetre: [], personneId: "", enfants: [], actif: false, depuis: ts(), message, ...trace() });
+    async demanderAdhesion(c, nom, tel, message, profil = {}) {
+      await db.doc(`clubs/${c}/membres/${Fire.uid}`).set({ nom, tel, role: "membre", perimetre: [], personneId: "", enfants: [], actif: false, depuis: ts(), message, profil, ...trace() });
     },
     async ecrireRoles(c, roles) { await db.doc(`clubs/${c}/reglages/roles`).set({ roles, ...trace() }); },
     async majClub(c, data) { await db.doc("clubs/" + c).update({ ...data, ...trace() }); },

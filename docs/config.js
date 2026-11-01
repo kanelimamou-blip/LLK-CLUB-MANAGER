@@ -6,6 +6,10 @@ window.PLATEFORME = {
   urlAppli: "https://kanelimamou-blip.github.io/LLK-CLUB-MANAGER/",
   clubParDefaut: "as-exemple",        // club ouvert à l'arrivée (une appli dédiée à un club = son id ici)
   supportTel: "78 272 19 20",
+  // Connexion par numéro de téléphone : « code » = code secret choisi par la personne (gratuit), « sms » = code reçu par SMS
+  // (forfait Firebase Blaze). Réglage de départ : l'admin le change ensuite dans #admin > Connexion, sans toucher au code.
+  CONNEXION: { mode: "code", google: false },
+  indicatif: "+221",
   // null = mode démo : tout reste sur l'appareil, avec le club d'exemple et une barre pour changer de profil.
   FIREBASE_CONFIG: null,
   // Identifiants Firebase des admins de la plateforme (les mêmes que dans admin() de firestore.rules). Jamais d'e-mail ici.

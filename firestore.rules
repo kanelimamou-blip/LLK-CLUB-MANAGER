@@ -63,16 +63,25 @@ service cloud.firestore {
     match /{document=**} { allow read: if admin(); }
 
     // ---------- Comptes (un compte = une personne, membre d'un ou plusieurs clubs) ----------
+    // La fiche (prénom, nom, e-mail facultatif…) suit le modèle publié : plateforme/modele.compte = liste des champs.
+    // Le téléphone vient de la connexion (SMS ou téléphone + code secret) et ne peut pas être changé à la main.
     match /users/{uid} {
+      function champsCompte() { return modele().get('compte', []); }
+      // numéro prouvé par la connexion : SMS (phone_number) ou téléphone + code secret (e-mail technique <numéro>@tel.llk.app)
+      function telConnexion() {
+        return request.auth.token.get('phone_number', '') != '' ? request.auth.token.phone_number
+          : (request.auth.token.get('email', '').matches('^[0-9]+@tel[.]llk[.]app$') ? '+' + request.auth.token.email.split('@')[0] : '');
+      }
+      function telOk() { return str(d().get('tel', ''), 30) && (telConnexion() == '' || d().get('tel', '') == telConnexion()); }
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn() && request.auth.uid == uid
-        && d().keys().hasOnly(['nom', 'email', 'tel', 'created', 'lastSeen', 'active', 'clubs'])
+        && d().keys().hasOnly(['tel', 'created', 'lastSeen', 'active', 'clubs', 'complet'].concat(champsCompte()))
         && d().active == true && d().created == request.time && d().lastSeen == request.time
-        && str(d().nom, 80) && str(d().email, 120) && str(d().tel, 30) && d().get('clubs', []) is list;
+        && telOk() && d().get('clubs', []) is list && d().get('complet', false) is bool && d().size() <= 40;
       allow update: if signedIn() && request.auth.uid == uid && resource.data.active == true
-        && changed().hasOnly(['nom', 'tel', 'lastSeen', 'clubs'])
-        && d().lastSeen == request.time && str(d().nom, 80) && str(d().get('tel', ''), 30)
-        && d().get('clubs', []) is list && d().get('clubs', []).size() <= 20;
+        && changed().hasOnly(['lastSeen', 'clubs', 'complet'].concat(champsCompte()))
+        && d().lastSeen == request.time && d().get('clubs', []) is list && d().get('clubs', []).size() <= 20
+        && d().get('complet', false) is bool && d().size() <= 40;
       // l'admin suspend ou réactive un compte, et rien d'autre
       allow update: if admin() && changed().hasOnly(['active']) && d().active is bool;
       allow delete: if false;
@@ -121,9 +130,11 @@ service cloud.firestore {
       match /membres/{uid} {
         allow read: if signedIn() && request.auth.uid == uid;
         allow read: if moduleOn(c, 'base') && can(c, 'membres');
-        // demande d'adhésion : le compte se crée lui-même membre simple, inactif, sans périmètre
+        // demande d'adhésion : le compte se crée lui-même membre simple, inactif, sans périmètre, avec une copie de son profil
+        // (que le club lit pour valider et créer sa fiche joueur ou staff)
         allow create: if actif() && request.auth.uid == uid && clubData(c).active == true
-          && d().keys().hasOnly(['nom', 'tel', 'role', 'perimetre', 'personneId', 'enfants', 'actif', 'depuis', 'message', 'maj', 'par'])
+          && d().keys().hasOnly(['nom', 'tel', 'role', 'perimetre', 'personneId', 'enfants', 'actif', 'depuis', 'message', 'profil', 'maj', 'par'])
+          && d().get('profil', {}) is map && d().get('profil', {}).size() <= 40
           && d().role == 'membre' && d().actif == false && d().perimetre.size() == 0 && d().enfants.size() == 0
           && d().personneId == '' && d().depuis == request.time && str(d().nom, 80) && str(d().tel, 30)
           && str(d().get('message', ''), 300) && audit();

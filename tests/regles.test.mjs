@@ -123,7 +123,7 @@ await t("joueur ne voit pas tous les reçus", assertFails(getDocs(collection(jou
 
 /* ----- Membres, rôles, périmètres ----- */
 const demande = { nom: "Intrus", tel: "", role: "membre", perimetre: [], personneId: "", enfants: [], actif: false, depuis: serverTimestamp(), ...A("intrus") };
-await t("un compte demande à rejoindre le club", assertSucceeds(setDoc(doc(intrus, C + "/membres/intrus"), demande)));
+await t("un compte demande à rejoindre le club (avec son profil)", assertSucceeds(setDoc(doc(intrus, C + "/membres/intrus"), { ...demande, profil: { profil: "joueur", prenom: "Ali", poste: "Gardien", categorieSouhaitee: "foot-u13" } })));
 await t("il ne s'active pas lui-même", assertFails(updateDoc(doc(intrus, C + "/membres/intrus"), { actif: true, ...A("intrus") })));
 await t("on ne demande pas à entrer comme entraîneur", assertFails(setDoc(doc(db("x2"), C + "/membres/x2"), { ...demande, role: "entraineur", par: "x2" })));
 await t("secrétaire (foot) accepte et nomme entraîneur U15 foot", assertSucceeds(updateDoc(doc(secr, C + "/membres/intrus"), { actif: true, role: "entraineur", perimetre: ["foot"], ...A("secr") })));
@@ -142,6 +142,21 @@ await t("visiteur lit le modèle publié", assertSucceeds(getDoc(doc(anon, "plat
 await t("président ne publie pas le modèle", assertFails(setDoc(doc(pres, "plateforme/modele"), { politique: {}, roles: {} })));
 await t("admin publie le modèle", assertSucceeds(setDoc(doc(adm, "plateforme/modele"), JSON.parse(JSON.stringify(modele)))));
 await t("admin souscrit un module", assertSucceeds(updateDoc(doc(adm, C), { modules: ["effectif", "sportif", "finances", "communication", "installations"], ...A("ADMIN1") })));
+
+/* ----- Comptes : connexion par téléphone, fiche complétée après la 1re connexion ----- */
+const awa = env.authenticatedContext("awa", { phone_number: "+221771112233" }).firestore();
+const nouveau = (extra = {}) => ({ tel: "+221771112233", created: serverTimestamp(), lastSeen: serverTimestamp(), active: true, clubs: [], complet: false, ...extra });
+await t("compte créé avec le téléphone de la connexion", assertSucceeds(setDoc(doc(awa, "users/awa"), nouveau())));
+await t("pas un autre téléphone que celui vérifié par SMS", assertFails(setDoc(doc(env.authenticatedContext("x4", { phone_number: "+221779999999" }).firestore(), "users/x4"), nouveau())));
+const pin = env.authenticatedContext("moussa", { email: "221775556677@tel.llk.app" }).firestore();
+await t("connexion téléphone + code secret : compte créé avec son numéro", assertSucceeds(setDoc(doc(pin, "users/moussa"), nouveau({ tel: "+221775556677" }))));
+await t("téléphone + code secret : pas le numéro d'un autre", assertFails(setDoc(doc(env.authenticatedContext("m2", { email: "221775556677@tel.llk.app" }).firestore(), "users/m2"), nouveau({ tel: "+221770000001" }))));
+await t("fiche complétée (champs du modèle, e-mail facultatif)", assertSucceeds(updateDoc(doc(awa, "users/awa"), { prenom: "Awa", nom: "Fall", profil: "parent de joueur", quartier: "Médina", complet: true, lastSeen: serverTimestamp() })));
+await t("champ hors modèle refusé", assertFails(updateDoc(doc(awa, "users/awa"), { pirate: 1, lastSeen: serverTimestamp() })));
+await t("on ne change pas son téléphone à la main", assertFails(updateDoc(doc(awa, "users/awa"), { tel: "+221700000000", lastSeen: serverTimestamp() })));
+await t("l'admin suspend le compte", assertSucceeds(updateDoc(doc(adm, "users/awa"), { active: false })));
+await t("compte suspendu : ne se réactive pas lui-même", assertFails(updateDoc(doc(awa, "users/awa"), { active: true, lastSeen: serverTimestamp() })));
+await t("compte suspendu : ne modifie plus sa fiche", assertFails(updateDoc(doc(awa, "users/awa"), { quartier: "HLM", lastSeen: serverTimestamp() })));
 
 /* ----- Modularité : une collection ajoutée au modèle marche sans toucher aux règles ----- */
 const mods2 = json("modules.json");

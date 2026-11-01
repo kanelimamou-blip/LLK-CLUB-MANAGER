@@ -36,9 +36,9 @@ Tout reste sur l'appareil ; « Remettre à zéro » recharge l'exemple.
 
 1. Créer un dépôt GitHub vide, y copier ce dossier, pousser sur `main`.
 2. Settings > Pages > Source : **GitHub Actions**. L'appli est en ligne en mode démo.
-3. Firebase : créer un projet, activer Authentication (Google + e-mail) et Firestore.
+3. Firebase : créer un projet, activer Authentication > **Adresse e-mail/Mot de passe** (sert à la connexion « téléphone + code secret », gratuite) et Firestore. Le SMS (fournisseur Téléphone) demande le forfait Blaze : à activer plus tard, puis #admin > Connexion.
 4. `docs/config.js` : coller la configuration web dans `FIREBASE_CONFIG`.
-5. Se connecter une fois, ouvrir `#admin` : l'appli affiche ton identifiant. Le mettre dans `admins` (config.js)
+5. Se connecter une fois (numéro + code secret, « Première connexion »), ouvrir `#admin` : l'appli affiche ton identifiant. Le mettre dans `admins` (config.js)
    et dans `admin()` de `firestore.rules`, puis coller les règles dans la console (Firestore > Règles). **C'est la seule fois.**
 6. `#admin > Modèle` : « Republier depuis les fichiers ». `#admin > Sports` : « Publier le catalogue ».
 7. `#admin > Clubs` : créer le premier club, cocher ses modules, nommer son président (son identifiant s'affiche sur `#admin` quand il s'y connecte).

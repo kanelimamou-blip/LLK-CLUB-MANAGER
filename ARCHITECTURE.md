@@ -35,12 +35,20 @@ Directeur sportif 70, Entraîneur 40, Staff médical 40, Adjoint/préparateur 30
 Un entraîneur U13 et un entraîneur U17 ont le même rôle, avec un périmètre différent : chacun ne voit et ne modifie que ses joueurs.
 Un responsable de la section foot ne peut pas donner un accès au basket.
 
+### Inscription et connexion
+
+- **Connexion par numéro de téléphone.** Gratuit : téléphone + code secret à 6 chiffres choisi à la première connexion. Payant (Firebase Blaze) : code reçu par SMS. Google en option. L'admin choisit dans `#admin > Connexion`.
+- **Fiche demandée à la première connexion**, définie dans `modules.json > compte` : « Je suis » joueur, parent, staff technique, staff médical, dirigeant… Les champs s'adaptent (`pour`, `requisPour`) : âge, poste, taille… pour un joueur ; e-mail et fonction obligatoires pour le staff.
+- **Demande d'adhésion** au club avec la catégorie souhaitée ; le profil est joint. Le club valide dans Membres : « Créer sa fiche depuis ce profil » crée la fiche joueur ou staff, la lie au compte et l'active.
+- **Suivi de performance** : le joueur (et ses parents) voient sur l'accueil matchs, minutes, stats cumulées du sport, taux de présence, note moyenne, dernière évaluation.
+
 ## 3. Modèle de données (Firestore)
 
 ```
 plateforme/modele            le modèle publié : politique des collections, rôles de départ, modules (pour l'appli)
 sports/{sportId}             catalogue commun : nom, formats, postes, stats, catégories de départ
-users/{uid}                  compte : nom, e-mail, téléphone, actif (l'admin suspend), dates du serveur
+users/{uid}                  compte : téléphone (vient de la connexion), champs de la fiche (modèle > compte), actif, dates du serveur
+plateforme/reglages          mode de connexion (code secret ou SMS, Google)
 erreurs/{id}                 plantages et refus remontés par les appareils (lus par l'admin)
 
 clubs/{clubId}               fiche publique : nom, logo, couleurs, contacts ; licence : active, modules, offre (admin)

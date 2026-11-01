@@ -76,7 +76,7 @@
           ${club && club.logo ? `<img src="${esc(club.logo)}" alt="">` : `<img src="icons/logo.svg" alt="">`}
           <span><b>${esc(club ? club.nomCourt || club.nom : P.nom)}</b><small>${esc(titre || (club ? club.slogan || "" : P.slogan))}</small></span>
         </a>
-        <div class="compte">${B.mode === "firebase" ? (B.uid ? `<button class="lien" data-a="deco">Déconnexion</button>` : `<a class="btn petit" href="#/connexion">Connexion</a>`) : ""}
+        <div class="compte">${B.mode === "firebase" ? (B.uid ? `<a class="lien" href="#/profil">Mon profil</a><button class="lien" data-a="deco">Déconnexion</button>` : `<a class="btn petit" href="#/connexion">Connexion</a>`) : `<a class="lien" href="#/profil">Profil</a>`}
           <span class="badge">${esc(libelleRole())}</span></div>
       </header>
       <div class="cadre">
@@ -119,6 +119,9 @@
     try {
       if (parts[0] === "admin") { S.club = null; S.clubId = null; D.regler({ membre: null }); return B.estAdmin() ? vueAdmin(parts[1]) : coquille(`<div class="carte">Espace réservé à l'admin de la plateforme.${B.uid ? `<p class="muted">Votre identifiant : <code>${esc(B.uid)}</code> (à mettre dans <code>admins</code> de config.js et dans <code>admin()</code> des règles).</p>` : ""}</div>`); }
       if (parts[0] === "connexion") return vueConnexion();
+      if (parts[0] === "profil") return vueProfil(false);
+      // première connexion : la fiche du compte d'abord (sauf l'admin, qui doit pouvoir publier le modèle avant)
+      if (B.mode === "firebase" && B.uid && B.compte && !B.compte.complet && parts[0] !== "admin") return vueProfil(true);
       if (parts[0] === "clubs" || (!parts[0] && !P.clubParDefaut)) return vueClubs();
       if (!parts[0]) { location.hash = "#/c/" + P.clubParDefaut; return; }
       if (parts[0] !== "c") return vueClubs();
@@ -141,6 +144,40 @@
   const toast = (t) => { document.querySelectorAll(".toast").forEach((x) => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); };
   async function action(fn, ok) { try { await fn(); if (ok) toast(ok); } catch (e) { console.error(e); toast("Refusé : " + (e.message || e)); } }
 
+  /* ---------- Profil du compte joint à une demande d'adhésion, puis fiche créée par le club ---------- */
+  const champsCompte = () => ((S.modele.modules.compte || {}).champs) || [];
+  function profilPourClub(categorieId) {
+    const p = {}; for (const ch of champsCompte()) { const v = (B.compte || {})[ch.id]; if (v !== undefined && v !== "" && v !== null) p[ch.id] = v; }
+    const cat = (S.cache.categories || []).find((c) => c.id === categorieId);
+    if (cat) { p.categorieSouhaitee = cat.id; p.sectionSouhaitee = cat.sectionId; }
+    return p;
+  }
+  const TYPE_FICHE = { "joueur": "joueur", "staff technique": "staff technique", "staff médical": "staff médical", "dirigeant": "dirigeant" };
+  async function creerFicheDepuisProfil(m) {
+    const p = m.profil || {};
+    const fiche = { type: TYPE_FICHE[p.profil] || "bénévole", prenom: p.prenom || m.nom || "", nom: p.nom || "", naissance: p.naissance || "", sexe: p.sexe || "",
+      tel: m.tel || "", email: p.email || "", quartier: p.quartier || "", poste: p.poste || p.fonction || "", lateralite: p.lateralite || "",
+      taille: p.taille ?? null, poids: p.poids ?? null, contactUrgence: p.contactUrgence || "", statut: "actif", uid: m.uid,
+      sectionId: p.sectionSouhaitee || "", categorieId: p.categorieSouhaitee || "" };
+    if (!D.perimetreOk(fiche.sectionId, fiche.categorieId)) throw new Error("catégorie souhaitée hors de votre périmètre : choisissez-la dans Effectif");
+    const id = await B.ecrire(S.clubId, "personnes", null, fiche); vider("personnes"); return id;
+  }
+
+  // Suivi de performance d'un joueur : matchs, minutes, stats cumulées selon le sport, présences, dernière évaluation
+  async function perfHtml(pid) {
+    const [stats, pres, evals, evts] = await Promise.all(["stats", "presences", "evaluations", "evenements"].map((x) => (moduleOn(pol(x)?.m) ? charger(x) : [])));
+    const st = stats.filter((x) => x.personneId === pid), pr = pres.filter((x) => x.personneId === pid), ev = evals.filter((x) => x.personneId === pid).sort((a, b) => (a.date < b.date ? 1 : -1));
+    const cumul = {}; st.forEach((x) => Object.entries(x.valeurs || {}).forEach(([k, v]) => (cumul[k] = (cumul[k] || 0) + (Number(v) || 0))));
+    const presents = pr.filter((x) => x.statut === "présent" || x.statut === "retard").length;
+    const notes = st.map((x) => x.note).filter((n) => n != null);
+    const tuiles = [["Matchs", st.length], ["Minutes", st.reduce((s, x) => s + (x.minutes || 0), 0)], ...Object.entries(cumul).filter(([, v]) => v).slice(0, 6).map(([k, v]) => [k, v]),
+      ["Présence", pr.length ? Math.round((presents / pr.length) * 100) + " %" : "—"], ["Note moyenne", notes.length ? (notes.reduce((a, b) => a + b, 0) / notes.length).toFixed(1) : "—"]];
+    const derniers = st.map((x) => ({ ...x, e: evts.find((e) => e.id === x.evenementId) })).filter((x) => x.e).sort((a, b) => (a.e.debut < b.e.debut ? 1 : -1)).slice(0, 5);
+    return `<h4>Mes performances</h4><div class="tuiles mini-tuiles">${tuiles.map(([t, v]) => `<div class="tuile"><b>${esc(v)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+      ${derniers.map((x) => `<div class="ligne"><span>${esc(nomDoc(x.e))}<br><small>${dateFr(x.e.debut)} · ${x.minutes || 0} min</small></span><small>${esc(Object.entries(x.valeurs || {}).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(", "))}</small></div>`).join("")}
+      ${ev[0] ? `<div class="ligne"><span>Dernière évaluation (${dateFr(ev[0].date)})<br><small>${esc(Object.entries(ev[0].criteres || {}).map(([k, v]) => `${k} ${v}`).join(" · "))}</small></span></div>${ev[0].commentaire ? `<p class="muted">« ${esc(ev[0].commentaire)} »</p>` : ""}` : ""}`;
+  }
+
   /* ---------- Accueil : vitrine + espace personnel selon le profil ---------- */
   async function vueAccueil() {
     const c = S.club;
@@ -155,8 +192,10 @@
     if (!D.membre()) {
       if (S.membre && !S.membre.actif) html += `<div class="carte info">Votre demande d'adhésion est en attente de validation par le club.</div>`;
       else if (B.mode === "firebase" && B.uid) html += `<div class="carte"><h3>Rejoindre le club</h3><p class="muted">Joueur, parent ou staff : envoyez votre demande, le club vous donne ensuite votre accès.</p>
-        <div class="grille2"><input id="adh-nom" placeholder="Nom complet"><input id="adh-tel" placeholder="Téléphone"></div>
-        <input id="adh-msg" placeholder="Ex. parent de Moussa Diop (U13)"><button class="btn" id="adh-go">Envoyer ma demande</button></div>`;
+        <div class="grille2"><input id="adh-nom" placeholder="Nom complet" value="${esc([B.compte?.prenom, B.compte?.nom].filter(Boolean).join(" "))}"><input id="adh-tel" placeholder="Téléphone" value="${esc(B.compte?.tel || "")}"></div>
+        <label>Section / catégorie souhaitée<select id="adh-cat"><option value="">(je ne sais pas)</option>${(S.cache.categories || []).map((c) => `<option value="${c.id}">${esc(nomCat(c))}</option>`).join("")}</select></label>
+        <input id="adh-msg" placeholder="Un mot pour le club (facultatif)"><button class="btn" id="adh-go">Envoyer ma demande</button>
+        <p class="muted">Votre profil (${esc(B.compte?.profil || "à compléter")}) est joint à la demande : le club le valide puis vous donne votre accès.</p></div>`;
       else if (B.mode === "firebase") html += `<div class="carte"><a class="btn" href="#/connexion">Se connecter pour accéder à mon espace</a></div>`;
     }
 
@@ -172,6 +211,7 @@
           ${cv.length ? `<h4>Convocations</h4>` + cv.map((x) => `<div class="ligne"><div><b>${esc(nomDoc(x.e))}</b><br><small>${dateFr(x.e.debut)} · ${esc(x.e.lieu || "")}</small></div>
             <div class="rep">${["présent", "absent", "incertain"].map((r) => `<button class="mini ${x.reponse === r ? "on" : ""}" data-conv="${x.id}" data-rep="${r}">${r}</button>`).join("")}</div></div>`).join("") : `<p class="muted">Pas de convocation à venir.</p>`}
           ${ec.length ? `<h4>À payer</h4>` + ec.map((x) => `<div class="ligne"><span>${esc(x.libelle || "Cotisation")} · avant le ${dateFr(x.du)}</span><b>${argent((x.montant || 0) - (x.paye || 0))}</b></div>`).join("") : ""}
+          ${p && p.type === "joueur" ? await perfHtml(pid) : ""}
           <div class="actions"><a class="btn petit" href="#/c/${S.clubId}/f/personnes/${pid}">Voir la fiche</a>${moduleOn("sportif") ? `<a class="btn petit clair" href="#/c/${S.clubId}/pointage">Pointer à l'arrivée</a>` : ""}</div></div>`;
       }
     }
@@ -199,7 +239,7 @@
       if (invite) { invite.prompt(); await invite.userChoice; invite = null; inst.hidden = true; }
       else toast("Sur iPhone : bouton Partager, puis « Sur l'écran d'accueil »");
     };
-    const adh = $("#adh-go"); if (adh) adh.onclick = () => action(async () => { await B.demanderAdhesion(S.clubId, $("#adh-nom").value.slice(0, 80), $("#adh-tel").value.slice(0, 30), $("#adh-msg").value.slice(0, 300)); S.clubId = null; route(); }, "Demande envoyée");
+    const adh = $("#adh-go"); if (adh) adh.onclick = () => action(async () => { await B.demanderAdhesion(S.clubId, $("#adh-nom").value.slice(0, 80), $("#adh-tel").value.slice(0, 30), $("#adh-msg").value.slice(0, 300), profilPourClub($("#adh-cat").value)); S.clubId = null; route(); }, "Demande envoyée");
   }
 
   /* ---------- Module : onglets des collections lisibles, puis liste filtrable ---------- */
@@ -388,14 +428,22 @@
       .filter(([z]) => D.president() || D.perimetre().includes("*") || D.perimetre().includes(z));
     coquille(`<p class="muted">Le rôle dit ce qu'un compte peut faire, le périmètre dit sur quelles sections ou catégories. Un parent est un membre lié aux fiches de ses enfants.</p>
       ${ms.map((m) => { const modif = m.uid !== B.uid && D.niveau(m.role) < monNiv;
-        return `<form class="carte membre" data-uid="${esc(m.uid)}"><div class="ligne"><div><b>${esc(m.nom || m.uid)}</b> ${m.actif ? "" : `<span class="badge alerte">demande</span>`}<br><small class="muted">${esc(m.message || m.tel || "")}</small></div>
+        return `<form class="carte membre" data-uid="${esc(m.uid)}"><div class="ligne"><div><b>${esc(m.nom || m.uid)}</b> ${m.actif ? "" : `<span class="badge alerte">demande</span>`}<br><small class="muted">${esc([m.tel, m.message].filter(Boolean).join(" · "))}</small></div>
           ${modif ? `<label class="case"><input type="checkbox" name="actif" ${m.actif ? "checked" : ""}> Actif</label>` : `<span class="badge">${esc(m.role === "president" ? "Président" : (S.R[m.role] || {}).nom || m.role)}</span>`}</div>
+          ${m.profil && Object.keys(m.profil).length ? `<details ${m.actif ? "" : "open"}><summary>Profil : ${esc(m.profil.profil || "")}${m.profil.categorieSouhaitee ? " · souhaite " + esc(nomCat({ categorieId: m.profil.categorieSouhaitee, sectionId: m.profil.sectionSouhaitee })) : ""}</summary>
+            <div class="profil-det">${champsCompte().filter((ch) => m.profil[ch.id] !== undefined && m.profil[ch.id] !== "" && ch.id !== "profil").map((ch) => `<span><small>${esc(ch.label)}</small>${valeur(ch, m.profil[ch.id])}</span>`).join("")}</div>
+            ${modif && !m.personneId && D.can("effectif") ? `<button type="button" class="btn petit clair" data-fiche>Créer sa fiche ${esc(TYPE_FICHE[m.profil.profil] || "membre")} depuis ce profil</button>` : ""}</details>` : ""}
           ${modif ? `<div class="grille2"><label>Rôle<select name="role">${roles.map(([id, n]) => `<option value="${id}" ${id === m.role ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
             <label>Sa fiche (joueur ou staff)<select name="personneId"><option value="">(aucune)</option>${ps.map((p) => `<option value="${p.id}" ${p.id === m.personneId ? "selected" : ""}>${esc(nomDoc(p))}</option>`).join("")}</select></label></div>
             <details><summary>Périmètre (${(m.perimetre || []).length || "aucun"}) et enfants (${(m.enfants || []).length})</summary>
               <div class="cases" data-k="perimetre">${zones.map(([z, n]) => `<label class="case"><input type="checkbox" value="${esc(z)}" ${(m.perimetre || []).includes(z) ? "checked" : ""}> ${esc(n)}</label>`).join("")}</div>
               <h4>Enfants (pour un parent)</h4><div class="cases" data-k="enfants">${ps.filter((p) => p.type === "joueur").map((p) => `<label class="case"><input type="checkbox" value="${p.id}" ${(m.enfants || []).includes(p.id) ? "checked" : ""}> ${esc(nomDoc(p))}</label>`).join("")}</div></details>
             <button class="btn petit">Enregistrer</button>` : ""}</form>`; }).join("")}`, "Membres");
+    app.querySelectorAll("[data-fiche]").forEach((b) => (b.onclick = () => action(async () => {
+      const f = b.closest("form"); const m = ms.find((x) => x.uid === f.dataset.uid);
+      const pid = await creerFicheDepuisProfil(m);
+      await B.ecrireMembre(S.clubId, m.uid, { personneId: pid, actif: true }); vueMembres();
+    }, "Fiche créée, liée et compte activé")));
     app.querySelectorAll("form.membre").forEach((f) => (f.onsubmit = (e) => { e.preventDefault(); action(async () => {
       const coche = (k) => [...f.querySelectorAll(`[data-k=${k}] input:checked`)].map((i) => i.value);
       await B.ecrireMembre(S.clubId, f.dataset.uid, { actif: f.actif.checked, role: f.role.value, personneId: f.personneId.value, perimetre: coche("perimetre"), enfants: coche("enfants") });
@@ -522,7 +570,7 @@
   /* ---------- Espace admin de la plateforme : clubs, licences, modèle, sports ---------- */
   async function vueAdmin(onglet = "clubs") {
     S.modele = await B.modele();
-    const ong = `<div class="onglets">${[["clubs", "Clubs"], ["modele", "Modèle"], ["sports", "Sports"]].map(([k, t]) => `<a href="#/admin/${k}" class="${k === onglet ? "actif" : ""}">${t}</a>`).join("")}</div>`;
+    const ong = `<div class="onglets">${[["clubs", "Clubs"], ["modele", "Modèle"], ["sports", "Sports"], ["connexion", "Connexion"]].map(([k, t]) => `<a href="#/admin/${k}" class="${k === onglet ? "actif" : ""}">${t}</a>`).join("")}</div>`;
     const optionnels = modules().filter((m) => !m.obligatoire);
     if (onglet === "clubs") {
       const clubs = await B.clubs();
@@ -592,6 +640,16 @@
       $("#md-droit").onsubmit = (e) => { e.preventDefault(); const f = e.target; action(async () => { const m = copieMods(); m.droits[f.id.value.trim()] = f.t.value.trim() || f.id.value.trim(); await publier(m, rolesAct()); }, "Droit ajouté"); };
       $("#md-pub").onclick = () => action(async () => { await publier(JSON.parse($("#md-json").value), JSON.parse($("#md-roles").value)); }, "Modèle publié");
     }
+    if (onglet === "connexion") {
+      const cx = S.connexion;
+      coquille(ong + `<form class="carte" id="cx-reg"><h3>Connexion des comptes</h3>
+        <label class="case"><input type="radio" name="mode" value="code" ${cx.mode !== "sms" ? "checked" : ""}> Téléphone + code secret (gratuit, numéro non vérifié)</label><br>
+        <label class="case"><input type="radio" name="mode" value="sms" ${cx.mode === "sms" ? "checked" : ""}> Téléphone + code SMS (numéro vérifié ; forfait Firebase Blaze, SMS payants)</label><br>
+        <label class="case"><input type="checkbox" name="google" ${cx.google ? "checked" : ""}> Proposer aussi « Continuer avec Google »</label>
+        <p class="muted">Dans la console Firebase > Authentication, activez le fournisseur correspondant : « Adresse e-mail/Mot de passe » pour le code secret, « Téléphone » pour le SMS, « Google » pour Google.</p>
+        <button class="btn">Enregistrer</button></form>`, "Connexion");
+      $("#cx-reg").onsubmit = (e) => { e.preventDefault(); const f = e.target; action(async () => { const data = { mode: f.mode.value, google: f.google.checked }; await B.majReglagesPlateforme(data); S.connexion = { ...S.connexion, ...data }; }, "Réglage enregistré"); };
+    }
     if (onglet === "sports") {
       S.sports = await B.sports();
       coquille(ong + `<p class="muted">Catalogue commun : postes, formats, statistiques et catégories de départ de chaque sport. Les clubs choisissent leurs sections dans cette liste.</p>
@@ -606,13 +664,57 @@
     const clubs = await B.clubs();
     coquille(`<h2>Clubs</h2>${clubs.filter((c) => c.active || B.estAdmin()).map((c) => `<a class="carte ligne" href="#/c/${esc(c.id)}"><b>${esc(c.nom)}</b><span class="muted">${esc(c.ville || "")}</span></a>`).join("") || `<p class="muted">Aucun club.</p>`}`);
   }
+  // Connexion par téléphone : code secret (gratuit) ou code SMS, selon le réglage de la plateforme (#admin > Connexion)
+  const telComplet = (v) => { const n = String(v || "").replace(/[^\d+]/g, ""); return n.startsWith("+") ? n : n.startsWith("00") ? "+" + n.slice(2) : (P.indicatif || "+221") + n; };
   function vueConnexion() {
-    coquille(`<div class="carte centre"><h3>Connexion</h3><button class="btn" id="cx-g">Continuer avec Google</button>
-      <p class="muted">ou par e-mail</p><input id="cx-e" type="email" placeholder="E-mail"><input id="cx-m" type="password" placeholder="Mot de passe (6 caractères min.)">
-      <div class="actions"><button class="btn clair" id="cx-in">Se connecter</button><button class="btn clair" id="cx-up">Créer un compte</button></div></div>`);
-    $("#cx-g").onclick = () => action(() => B.connecterGoogle());
-    $("#cx-in").onclick = () => action(() => B.connecterEmail($("#cx-e").value, $("#cx-m").value, false));
-    $("#cx-up").onclick = () => action(() => B.connecterEmail($("#cx-e").value, $("#cx-m").value, true));
+    const cx = S.connexion || {};
+    const sms = cx.mode === "sms";
+    coquille(`<div class="carte centre connexion"><h3>Connexion</h3>
+      ${B.mode === "demo" ? `<p class="alerte">Mode démo : la connexion marche une fois Firebase branché. Ici, changez de profil avec la barre jaune.</p>` : ""}
+      <label>Votre numéro de téléphone<input id="cx-tel" type="tel" inputmode="tel" placeholder="77 123 45 67" autocomplete="tel"></label>
+      ${sms ? `<button class="btn" id="cx-sms">Recevoir le code par SMS</button>
+        <div id="cx-etape2" hidden><label>Code reçu par SMS<input id="cx-code" inputmode="numeric" maxlength="6" class="gros" placeholder="······"></label><button class="btn" id="cx-ok">Valider</button></div>`
+      : `<label>Code secret (6 chiffres)<input id="cx-pin" type="password" inputmode="numeric" maxlength="6" class="gros" placeholder="······"></label>
+        <div class="actions centre"><button class="btn" id="cx-in">Se connecter</button><button class="btn clair" id="cx-up">Première connexion</button></div>
+        <p class="muted">Première fois : choisissez vos 6 chiffres et appuyez sur « Première connexion ». Code oublié : contactez votre club ou le ${esc(P.supportTel)}.</p>`}
+      ${cx.google ? `<p class="muted">ou</p><button class="btn clair" id="cx-g">Continuer avec Google</button>` : ""}</div>`, "Connexion");
+    const tel = () => { const t = telComplet($("#cx-tel").value); if (t.replace(/\D/g, "").length < 9) throw new Error("numéro incomplet"); return t; };
+    const pin = () => { const p = $("#cx-pin").value.trim(); if (!/^\d{6}$/.test(p)) throw new Error("le code secret fait 6 chiffres"); return p; };
+    const msg = (e) => ({ "auth/invalid-credential": "numéro ou code secret faux", "auth/wrong-password": "code secret faux", "auth/user-not-found": "numéro inconnu : appuyez sur « Première connexion »",
+      "auth/email-already-in-use": "ce numéro a déjà un compte : appuyez sur « Se connecter »", "auth/invalid-verification-code": "code SMS faux", "auth/too-many-requests": "trop d'essais, réessayez plus tard" })[e.code] || e.message;
+    const essai = (fn, ok) => action(async () => { try { await fn(); } catch (e) { throw new Error(msg(e)); } }, ok);
+    if ($("#cx-in")) { $("#cx-in").onclick = () => essai(() => B.connexionCode(tel(), pin(), false)); $("#cx-up").onclick = () => essai(() => B.connexionCode(tel(), pin(), true)); }
+    if ($("#cx-sms")) {
+      $("#cx-sms").onclick = () => essai(async () => { await B.envoyerCode(tel(), "cx-sms"); $("#cx-etape2").hidden = false; $("#cx-code").focus(); }, "Code envoyé par SMS");
+      $("#cx-ok").onclick = () => essai(() => B.confirmerCode($("#cx-code").value.trim()));
+    }
+    if ($("#cx-g")) $("#cx-g").onclick = () => essai(() => B.connecterGoogle());
+  }
+
+  // Fiche du compte, demandée après la première connexion ; ses champs viennent du modèle (modules.json > compte)
+  function vueProfil(premiere) {
+    const champs = champsCompte();
+    const c = B.compte || {};
+    coquille(`<form class="carte fiche" id="profil"><div class="fiche-tete"><h2>${premiere ? "Bienvenue ! Complétez votre profil" : "Mon profil"}</h2>
+        <p class="muted">Téléphone : <b>${esc(c.tel || "—")}</b>${B.uid ? ` · identifiant : <code>${esc(B.uid)}</code>` : ""}</p></div>
+      ${champs.map((ch) => `<label class="${ch.type === "texteLong" ? "large" : ""}" data-champ="${ch.id}">${esc(ch.label)}<span class="req"></span>${champHtml(ch, c[ch.id], true, {})}</label>`).join("")}
+      <div class="actions"><button class="btn">${premiere ? "Continuer" : "Enregistrer"}</button></div></form>`, "Mon profil");
+    const f = $("#profil");
+    const qui = () => (f.elements.profil ? f.elements.profil.value : "");
+    const visible = (ch) => !ch.pour || ch.pour.includes(qui());
+    const requis = (ch) => ch.requis || (ch.requisPour || []).includes(qui());
+    const maj = () => champs.forEach((ch) => { const l = f.querySelector(`[data-champ="${ch.id}"]`); l.hidden = !visible(ch); l.querySelector(".req").textContent = requis(ch) ? " *" : ""; });
+    if (f.elements.profil) f.elements.profil.onchange = maj; maj();
+    f.onsubmit = (e) => { e.preventDefault(); action(async () => {
+      const data = { complet: true };
+      for (const ch of champs) {
+        if (!visible(ch)) continue;
+        const v = lireChamp(f, ch); if (requis(ch) && (v === "" || v == null)) throw new Error(`« ${ch.label} » est obligatoire`);
+        data[ch.id] = v ?? "";
+      }
+      await B.majCompte(data);
+      if (premiere) { location.hash = "#/"; route(); }
+    }, "Profil enregistré"); };
   }
 
   /* ---------- Installer l'appli du club sur l'écran d'accueil ---------- */
@@ -626,6 +728,7 @@
     try {
       await B.init();
       [S.modele, S.sports] = await Promise.all([B.modele(), B.sports()]);
+      S.connexion = { ...(P.CONNEXION || {}), ...(await B.reglagesPlateforme()) };
       await route();
     } catch (e) { console.error(e); app.innerHTML = `<div class="carte erreur">Impossible de démarrer : ${esc(e.message)}</div>`; }
     if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js");
