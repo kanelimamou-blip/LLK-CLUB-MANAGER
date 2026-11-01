@@ -162,7 +162,7 @@
         <div class="feuille" id="feuille-ajout" hidden><div class="feuille-fond" data-ferme></div><div class="feuille-corps liste-ajout"><div class="poignee"></div><h3>Ajouter</h3>
           ${ajouts.map((a) => `<a href="${a.h}" ${a.pre ? `data-pre='${esc(JSON.stringify(a.pre))}'` : ""}>${ico(a.k, a.i)}<span>${esc(a.t)}</span></a>`).join("")}</div></div>` : ""}
       </div>`;
-    const pt = $("#partager"); if (pt) pt.onclick = () => {
+    const pt = $("#partager"); if (pt && club) pt.onclick = inviter; else if (pt) pt.onclick = () => {
       const url = location.origin + location.pathname + (club ? "#/c/" + S.clubId : ""), titre = club ? club.nom : P.nom;
       if (navigator.share) navigator.share({ title: titre, text: titre + " sur " + P.nom, url }).catch(() => {});
       else window.open("https://wa.me/?text=" + encodeURIComponent(titre + " : " + url), "_blank");
@@ -205,7 +205,7 @@
     const coul = S.club.couleurs || {};
     appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
     iconeClub(S.club);
-    document.title = S.club.nom;
+    document.title = S.club.nom; localStorage.setItem("dernier-club", id);
   }
   async function route() {
     const parts = (location.hash || "#/").slice(2).split("/").filter(Boolean);
@@ -216,6 +216,8 @@
       // première connexion : la fiche du compte d'abord (sauf l'admin, qui doit pouvoir publier le modèle avant)
       if (B.mode === "firebase" && B.uid && B.compte && !B.compte.complet && parts[0] !== "admin") return vueProfil(true);
       const defaut = P.clubParDefaut || (B.mode === "demo" ? "as-exemple" : "");
+      const dernier = localStorage.getItem("dernier-club");
+      if (!parts[0] && !defaut && dernier) { location.hash = "#/c/" + dernier + (localStorage.getItem("apres") ? "/rejoindre" : ""); return; }
       if (parts[0] === "clubs" || (!parts[0] && !defaut)) return vueClubs();
       if (!parts[0]) { location.hash = "#/c/" + defaut; return; }
       if (parts[0] !== "c") return vueClubs();
@@ -232,6 +234,7 @@
       if (v === "caisse") return vueCaisse();
       if (v === "bilan") return vueBilan();
       if (v === "cotiser") return vueCotiser();
+      if (v === "rejoindre") return vueRejoindre();
       if (v === "membres") return vueMembres();
       if (v === "reglages") return vueReglages();
       coquille(`<div class="carte">Page inconnue.</div>`);
@@ -294,7 +297,7 @@
       ${c.logo ? `<img class="hero-logo" src="${esc(c.logo)}" alt="">` : ""}
       <h1>${esc(mots.join(" "))}${dernier ? ` <em>${esc(dernier)}</em>` : ""}</h1>${c.slogan ? `<p>${esc(c.slogan)}</p>` : ""}
       <div class="actions">${moduleOn("sportif") && lisible(pol("evenements")) ? `<a class="btn accent" href="#/c/${S.clubId}/m/sportif">Voir le planning</a>` : ""}
-        ${!D.membre() && B.mode === "firebase" && !B.uid ? `<a class="btn ligne-btn" href="#/connexion">Rejoindre le club</a>` : ""}
+        ${!D.membre() ? `<a class="btn ligne-btn" href="#/c/${S.clubId}/rejoindre">Rejoindre le club</a>` : ""}
         ${installee() ? "" : `<button class="btn ligne-btn installer" id="installer" ${invite || estIOS ? "" : "hidden"}>Installer l'appli</button>`}</div>
       <div class="scoreline"><div><b>${(S.cache.sections || []).length}</b><span>${(S.cache.sections || []).length > 1 ? "sports" : "sport"} au club</span></div>
         <div><b>${semaine}</b><span>événements cette semaine</span></div><div><b>${joues.length}</b><span>matchs joués</span></div></div>
@@ -602,9 +605,9 @@
       if (mesDecl.length) h += `<div class="carte"><h3>Mes envois</h3>${mesDecl.map(([, d]) => `<div class="ligne"><div><b>${argent(d.montant)}</b> · ${esc(d.mode)} · ${dateFr(d.date)}<br><small class="muted">${d.statut === "refusée" ? "Refusé : " + esc(d.motif || "") + " · renvoyez une capture" : "Envoyé, en attente de vérification"}</small></div><span class="statut ${d.statut === "refusée" ? "rouge" : "orange"}">${d.statut === "refusée" ? "refusé" : "en attente"}</span></div>`).join("")}
         ${cfg.focal || cfg.numero ? `<a class="btn petit clair" target="_blank" rel="noopener" href="https://wa.me/${waNum(cfg.focal || cfg.numero)}?text=${encodeURIComponent(`Salut, j'ai envoyé ma capture de versement dans l'appli ${S.club.nom} : merci de vérifier 🙏`)}">Prévenir le point focal sur WhatsApp</a>` : ""}</div>`;
     } else if (membre) h += `<div class="carte info">Votre fiche n'est pas encore liée à votre compte : le club doit la créer (Membres) pour que vous puissiez envoyer vos captures.</div>`;
-    else h += `<div class="carte"><p>Rejoignez le club dans l'appli pour envoyer vos captures et voir qui a versé quoi.</p>${B.mode === "firebase" && !B.uid ? `<a class="btn" href="#/connexion">Se connecter</a>` : `<a class="btn" href="#/c/${S.clubId}">Envoyer ma demande</a>`}</div>`;
+    else h += `<div class="carte"><p>Rejoignez le club dans l'appli pour envoyer vos captures et voir qui a versé quoi.</p>${B.mode === "firebase" && !B.uid ? `<a class="btn" href="#/c/${S.clubId}/rejoindre">Rejoindre le club</a>` : `<a class="btn" href="#/c/${S.clubId}/rejoindre">Envoyer ma demande</a>`}</div>`;
     if (fin) {
-      h += `<div class="carte"><div class="lien-tete"><h3>À vérifier</h3><span class="badge ${aVerifier.length ? "alerte" : ""}">${aVerifier.length}</span></div>
+      h += `<div class="carte"><div class="lien-tete"><h3>À vérifier</h3><span class="badge ${aVerifier.length ? "alerte" : ""}">${aVerifier.length}</span><button type="button" class="btn petit clair" data-inviter>Inviter</button></div>
         ${aVerifier.map(({ id, d, p }) => `<form class="verif" data-p="${esc(p.id)}" data-d="${esc(id)}"><div class="ligne">${avatar(p)}<div class="grow"><b>${esc(nomDoc(p))}</b><br><small class="muted">${esc(d.mode)} · versé le ${dateFr(d.date)} · envoyé ${dateFr(String(d.envoye || "").slice(0, 10))} à ${esc(String(d.envoye || "").slice(11, 16))}</small></div><b>${argent(d.montant)}</b></div>
           <div class="preuves"><figure><img class="zoomable" src="${esc(d.capture)}" alt=""><figcaption>Sa capture</figcaption></figure>
           <figure>${champHtml({ id: "contre", type: "image" }, "", true, {})}<figcaption>Ma contre-capture *</figcaption></figure></div>
@@ -631,6 +634,7 @@
       <label class="large">Message d'appel<textarea name="texte" rows="2">${esc(cfg.texte || "")}</textarea></label><button class="btn">Enregistrer</button></form></details>`;
     coquille(h, "Caisse ouverte");
 
+    app.querySelectorAll("[data-inviter]").forEach((b) => (b.onclick = inviter));
     const cp = $("#copier-num"); if (cp) cp.onclick = () => navigator.clipboard.writeText(String(cfg.numero).replace(/\s/g, "")).then(() => toast("Numéro copié : collez-le dans Wave ou Orange Money"), () => toast(cfg.numero));
     app.querySelectorAll(".zoomable").forEach((i) => (i.onclick = () => i.classList.toggle("zoom")));
     const fd = $("#decl"); if (fd) fd.onsubmit = (e) => { e.preventDefault(); action(async () => {
@@ -678,6 +682,67 @@
     const fc = $("#cfg-caisse"); if (fc) fc.onsubmit = (e) => { e.preventDefault(); action(async () => {
       await B.ecrire(S.clubId, "caisses", "principale", { actif: fc.actif.checked, numero: fc.numero.value.trim().slice(0, 30), titulaire: fc.titulaire.value.trim().slice(0, 60), objectif: Math.round(Number(fc.objectif.value)) || 0, focal: fc.focal.value.trim().slice(0, 30), texte: fc.texte.value.trim().slice(0, 300), ...(membre ? { stats: statsCaisse(vers) } : {}) }); S.caisseActive = fc.actif.checked; vueCotiser();
     }, "Caisse enregistrée"); };
+  }
+
+  /* ---------- Rejoindre : lien d'invitation qui guide pas à pas (Android, iPhone) ----------
+     1. installer l'appli  2. créer son compte (téléphone + code secret)  3. profil  4. demande d'adhésion. Chaque étape faite est cochée. */
+  const lienRejoindre = () => location.origin + location.pathname + "#/c/" + S.clubId + "/rejoindre";
+  const plateforme = () => { const ua = navigator.userAgent;
+    if (/iphone|ipad|ipod/i.test(ua)) return /CriOS|FxiOS|EdgiOS|FBAN|FBAV|Instagram|Line|Snapchat|TikTok|musical_ly/i.test(ua) ? "ios-autre" : "ios";
+    if (/android/i.test(ua)) return /; wv\)|FBAN|FBAV|Instagram|TikTok|musical_ly|Snapchat/i.test(ua) ? "android-autre" : "android"; return "ordi"; };
+  function inviter() {
+    const txt = `Rejoins ${S.club.nom} sur l'appli : tout est expliqué pas à pas (Android et iPhone), installation, compte, cotisation.`;
+    if (navigator.share) navigator.share({ title: S.club.nom, text: txt, url: lienRejoindre() }).catch(() => {});
+    else window.open("https://wa.me/?text=" + encodeURIComponent(txt + " " + lienRejoindre()), "_blank");
+  }
+  async function vueRejoindre() {
+    localStorage.setItem("apres", location.hash);
+    const c = S.club, pf = plateforme(), inst = installee();
+    const compte = B.mode === "demo" ? B.uid !== "visiteur" : !!B.uid, profilOk = B.mode === "demo" || !!(B.compte && B.compte.complet);
+    const etat = D.membre() ? "membre" : S.membre ? "attente" : "non";
+    const etape = (n, fait, titre, corps, ouvert) => `<div class="etape-r ${fait ? "fait" : ""} ${ouvert ? "ouverte" : ""}"><span class="pastille">${fait ? "✓" : n}</span><div><h3>${titre}</h3>${ouvert ? corps : ""}</div></div>`;
+    const partagerIco = `<svg class="ico-ios" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>`;
+    let installTxt = "";
+    if (pf === "ios") installTxt = `<ol class="guide"><li>En bas de Safari, touchez ${partagerIco} <b>Partager</b></li><li>Faites défiler et touchez <b>« Sur l'écran d'accueil »</b></li><li>Touchez <b>Ajouter</b> en haut à droite</li><li>Fermez Safari et ouvrez l'icône <b>LLK Club</b> sur votre écran d'accueil, puis choisissez <b>${esc(c.nom)}</b> et continuez ici.</li></ol>`;
+    else if (pf === "ios-autre") installTxt = `<p class="alerte">Sur iPhone, l'installation se fait <b>dans Safari</b>.</p><ol class="guide"><li>Copiez le lien ci-dessous</li><li>Ouvrez <b>Safari</b>, collez-le dans la barre d'adresse</li><li>Revenez à cette page dans Safari pour la suite</li></ol><button type="button" class="btn clair" data-copie>Copier le lien</button>`;
+    else if (pf === "android-autre") installTxt = `<p class="alerte">Vous êtes dans le navigateur d'une autre appli (WhatsApp, TikTok…).</p><ol class="guide"><li>Touchez <b>⋮</b> en haut à droite</li><li>Choisissez <b>« Ouvrir dans Chrome »</b></li><li>Revenez ici et touchez « Installer »</li></ol><button type="button" class="btn clair" data-copie>Copier le lien</button>`;
+    else if (pf === "android") installTxt = `<button type="button" class="btn accent" id="rj-installer">Installer l'appli</button><p class="muted" id="rj-manuel">Si rien ne se passe : touchez <b>⋮</b> en haut à droite de Chrome, puis <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>.</p>`;
+    else installTxt = `<p class="muted">Sur ordinateur, l'appli marche directement ici. Sur téléphone, ouvrez ce même lien pour l'installer.</p>`;
+    installTxt += `<button type="button" class="lien" data-sauter>Continuer sans installer</button>`;
+    const sauter = sessionStorage.getItem("rj-sauter") === "1";
+    const e1 = inst || sauter || pf === "ordi";
+    const html = `<div class="rj-tete">${c.logo ? `<img src="${esc(c.logo)}" alt="">` : ""}<span class="sur">Invitation</span><h2>Rejoindre <em>${esc(c.nom)}</em></h2><p>4 étapes, 2 minutes. Gratuit.</p></div>
+      <div class="carte rejoindre">
+      ${etape(1, e1, "Installer l'appli sur mon téléphone", installTxt, !e1)}
+      ${etape(2, compte, compte ? `Mon compte : ${esc(nomCompte())}` : "Créer mon compte", `<p class="muted">Votre numéro + un code secret de 6 chiffres que vous choisissez. Notez-le bien.</p>
+        <label>Mon numéro<input id="cx-tel" type="tel" inputmode="tel" placeholder="77 123 45 67" autocomplete="tel"></label>
+        <label>Mon code secret (6 chiffres)<input id="cx-pin" type="password" inputmode="numeric" maxlength="6" class="gros" placeholder="······"></label>
+        <div class="actions"><button class="btn" id="cx-up">Créer mon compte</button><button class="btn clair" id="cx-in">J'ai déjà un compte</button></div>`, e1 && !compte)}
+      ${etape(3, compte && profilOk, "Mon profil", `<a class="btn" href="#/profil">Compléter mon profil</a>`, e1 && compte && !profilOk)}
+      ${etape(4, etat !== "non", etat === "membre" ? "Je suis membre du club ✓" : etat === "attente" ? "Demande envoyée : le club la valide" : "Demander à rejoindre le club", `
+        <label>Je suis<select id="rj-type">${["supporter", "joueur", "dirigeant", "staff technique"].map((t) => `<option ${((B.compte || {}).profil || "supporter") === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        ${(S.cache.categories || []).length ? `<label>Catégorie<select id="rj-cat"><option value="">(je ne sais pas)</option>${(S.cache.categories || []).map((x) => `<option value="${x.id}">${esc(nomCat(x))}</option>`).join("")}</select></label>` : ""}
+        <button class="btn" id="rj-go">Envoyer ma demande</button>`, e1 && compte && profilOk && etat === "non")}
+      ${etat === "membre" ? `<div class="actions">${S.caisseActive ? `<a class="btn accent" href="#/c/${S.clubId}/cotiser">Cotiser maintenant</a>` : ""}<a class="btn clair" href="#/c/${S.clubId}">Aller à l'accueil du club</a></div>`
+        : etat === "attente" ? `<p class="muted">Vous recevrez votre accès dès que le club aura validé. Rouvrez l'appli plus tard : cette page se mettra à jour.</p>` : ""}
+      </div>`;
+    coquille(html, "Rejoindre le club");
+    app.querySelectorAll("[data-copie]").forEach((b) => (b.onclick = () => navigator.clipboard.writeText(lienRejoindre()).then(() => toast("Lien copié"))));
+    app.querySelectorAll("[data-sauter]").forEach((b) => (b.onclick = () => { sessionStorage.setItem("rj-sauter", "1"); vueRejoindre(); }));
+    const bi = $("#rj-installer"); if (bi) bi.onclick = async () => {
+      if (invite) { invite.prompt(); const r = await invite.userChoice; invite = null; if (r.outcome === "accepted") { toast("Appli installée : ouvrez-la depuis l'écran d'accueil"); sessionStorage.setItem("rj-sauter", "1"); setTimeout(vueRejoindre, 1500); } }
+      else toast("Touchez ⋮ en haut à droite, puis « Installer l'application »");
+    };
+    const tel = () => { const t = telComplet($("#cx-tel").value); if (t.replace(/\D/g, "").length < 9) throw new Error("numéro incomplet"); return t; };
+    const pin = () => { const p = $("#cx-pin").value.trim(); if (!/^\d{6}$/.test(p)) throw new Error("le code secret fait 6 chiffres"); return p; };
+    const msg = (e) => ({ "auth/invalid-credential": "numéro ou code secret faux", "auth/wrong-password": "code secret faux", "auth/user-not-found": "numéro inconnu : touchez « Créer mon compte »", "auth/email-already-in-use": "ce numéro a déjà un compte : touchez « J'ai déjà un compte »", "auth/too-many-requests": "trop d'essais, réessayez plus tard" })[e.code] || e.message;
+    const essai = (fn) => action(async () => { if (B.mode === "demo") throw new Error("en démo, changez de profil avec la barre du haut"); try { await fn(); } catch (e) { throw new Error(msg(e)); } });
+    if ($("#cx-up")) { $("#cx-up").onclick = () => essai(() => B.connexionCode(tel(), pin(), true)); $("#cx-in").onclick = () => essai(() => B.connexionCode(tel(), pin(), false)); }
+    const go = $("#rj-go"); if (go) go.onclick = () => action(async () => {
+      const t = $("#rj-type").value; if (B.mode === "firebase" && (B.compte || {}).profil !== t) await B.majCompte({ profil: t });
+      await B.demanderAdhesion(S.clubId, nomCompte().slice(0, 80), ((B.compte || {}).tel || "").slice(0, 30), "", { ...profilPourClub($("#rj-cat") ? $("#rj-cat").value : ""), profil: t });
+      S.clubId = null; route();
+    }, "Demande envoyée au club");
   }
 
   // bilan financier pour le président et le trésorier
@@ -932,7 +997,7 @@
     const roles = [["membre", "Membre (joueur, parent, supporter)"], ...Object.entries(S.R).filter(([, r]) => r.niveau < monNiv).sort((a, b) => b[1].niveau - a[1].niveau).map(([id, r]) => [id, `${r.nom} (${r.niveau})`])];
     const zones = [["*", "Tout le club"], ...(S.cache.sections || []).map((s) => [s.id, s.nom]), ...(S.cache.categories || []).map((c) => [c.id, "· " + c.nom + " (" + ((S.cache.sections || []).find((s) => s.id === c.sectionId) || {}).nom + ")"])]
       .filter(([z]) => D.president() || D.perimetre().includes("*") || D.perimetre().includes(z));
-    coquille(`<p class="muted">Le rôle dit ce qu'un compte peut faire, le périmètre dit sur quelles sections ou catégories. Un parent est un membre lié aux fiches de ses enfants.</p>
+    coquille(`<div class="carte info maj-modele"><div><b>Inviter de nouveaux membres</b><br><small>Un lien qui les guide pas à pas sur Android et iPhone : installation, compte, demande. Leurs demandes arrivent ici.</small></div><button type="button" class="btn petit" data-inviter>Inviter</button></div><p class="muted">Le rôle dit ce qu'un compte peut faire, le périmètre dit sur quelles sections ou catégories. Un parent est un membre lié aux fiches de ses enfants.</p>
       ${ms.map((m) => { const modif = m.uid !== B.uid && D.niveau(m.role) < monNiv;
         return `<form class="carte membre" data-uid="${esc(m.uid)}"><div class="ligne"><div><b>${esc(m.nom || m.uid)}</b> ${m.actif ? "" : `<span class="badge alerte">demande</span>`}<br><small class="muted">${esc([m.tel, m.message].filter(Boolean).join(" · "))}</small></div>
           ${modif ? `<label class="case"><input type="checkbox" name="actif" ${m.actif ? "checked" : ""}> Actif</label>` : `<span class="badge">${esc(m.role === "president" ? "Président" : (S.R[m.role] || {}).nom || m.role)}</span>`}</div>
@@ -945,6 +1010,7 @@
               <div class="cases" data-k="perimetre">${zones.map(([z, n]) => `<label class="case"><input type="checkbox" value="${esc(z)}" ${(m.perimetre || []).includes(z) ? "checked" : ""}> ${esc(n)}</label>`).join("")}</div>
               <h4>Enfants (pour un parent)</h4><div class="cases" data-k="enfants">${ps.filter((p) => p.type === "joueur").map((p) => `<label class="case"><input type="checkbox" value="${p.id}" ${(m.enfants || []).includes(p.id) ? "checked" : ""}> ${esc(nomDoc(p))}</label>`).join("")}</div></details>
             <button class="btn petit">Enregistrer</button>` : ""}</form>`; }).join("")}`, "Membres");
+    app.querySelectorAll("[data-inviter]").forEach((b) => (b.onclick = inviter));
     app.querySelectorAll("[data-fiche]").forEach((b) => (b.onclick = () => action(async () => {
       const f = b.closest("form"); const m = ms.find((x) => x.uid === f.dataset.uid);
       const pid = await creerFicheDepuisProfil(m);
@@ -1245,7 +1311,7 @@
         data[ch.id] = v ?? "";
       }
       await B.majCompte(data);
-      if (premiere) { location.hash = "#/"; route(); }
+      if (premiere) { const a = localStorage.getItem("apres"); localStorage.removeItem("apres"); location.hash = a || "#/"; route(); }
     }, "Profil enregistré"); };
   }
 
