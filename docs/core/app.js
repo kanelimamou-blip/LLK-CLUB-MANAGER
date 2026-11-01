@@ -111,6 +111,7 @@
     D.regler({ uid: B.uid === "visiteur" ? null : B.uid, admin: B.estAdmin(), membre: S.membre, R: S.R });
     const coul = S.club.couleurs || {};
     appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
+    iconeClub(S.club, id);
     document.title = S.club.nom;
   }
   async function route() {
@@ -148,7 +149,8 @@
     const avenir = evts.filter((e) => (e.debut || "") >= today && e.statut !== "annulé").sort((a, b) => (a.debut > b.debut ? 1 : -1));
     const joues = evts.filter((e) => e.type === "match" && e.statut === "joué").sort((a, b) => (a.debut < b.debut ? 1 : -1));
     let html = `<section class="hero"><h1>${esc(c.nom)}</h1><p>${esc(c.slogan || "")}</p>
-      <div class="puces">${(S.cache.sections || []).map((s) => `<span class="puce">${esc((S.sports[s.sportId] || {}).icone || "")} ${esc(s.nom)}</span>`).join("")}</div></section>`;
+      <div class="puces">${(S.cache.sections || []).map((s) => `<span class="puce">${esc((S.sports[s.sportId] || {}).icone || "")} ${esc(s.nom)}</span>`).join("")}</div>
+      ${installee() ? "" : `<button class="btn installer" id="installer" ${invite || estIOS ? "" : "hidden"}>📲 Installer l'appli ${esc(c.nomCourt || c.nom)}</button>`}</section>`;
 
     if (!D.membre()) {
       if (S.membre && !S.membre.actif) html += `<div class="carte info">Votre demande d'adhésion est en attente de validation par le club.</div>`;
@@ -193,6 +195,10 @@
     app.querySelectorAll("[data-conv]").forEach((b) => (b.onclick = () => action(async () => {
       await B.ecrire(S.clubId, "convocations", b.dataset.conv, { reponse: b.dataset.rep }); vider("convocations"); vueAccueil();
     }, "Réponse envoyée")));
+    const inst = $("#installer"); if (inst) inst.onclick = async () => {
+      if (invite) { invite.prompt(); await invite.userChoice; invite = null; inst.hidden = true; }
+      else toast("Sur iPhone : bouton Partager, puis « Sur l'écran d'accueil »");
+    };
     const adh = $("#adh-go"); if (adh) adh.onclick = () => action(async () => { await B.demanderAdhesion(S.clubId, $("#adh-nom").value.slice(0, 80), $("#adh-tel").value.slice(0, 30), $("#adh-msg").value.slice(0, 300)); S.clubId = null; route(); }, "Demande envoyée");
   }
 
@@ -407,17 +413,48 @@
     st.setProperty("--on-accent", luminance(accent) > 0.45 ? "#111" : "#fff");
     let m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = principale;
   }
-  // Logo chargé depuis le téléphone : réduit à 256 px (léger, stocké dans la fiche du club) et couleurs dominantes extraites
+  // Icône de l'appli installée = logo du club, avec sa forme (fond transparent gardé), son nom et sa couleur.
+  // Le manifeste est fabriqué à la volée pour le club ouvert : l'appli installée s'ouvre directement sur ce club.
+  function iconeClub(club, clubId) {
+    const logo = club && club.logo;
+    const carre = (taille) => new Promise((ok) => {
+      if (!logo) return ok(null);
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement("canvas"); cv.width = cv.height = taille;
+        const k = Math.min(taille / img.width, taille / img.height) * 0.92; // petite marge pour que rien ne soit coupé
+        const w = img.width * k, h = img.height * k;
+        cv.getContext("2d").drawImage(img, (taille - w) / 2, (taille - h) / 2, w, h);
+        ok(cv.toDataURL("image/png"));
+      };
+      img.onerror = () => ok(null);
+      img.src = logo;
+    });
+    return Promise.all([carre(192), carre(512)]).then(([i192, i512]) => {
+      const base = location.href.split("#")[0];
+      const couleur = (club.couleurs || {}).principale || "#0B5D3B";
+      const icones = i192 ? [{ src: i192, sizes: "192x192", type: "image/png", purpose: "any" }, { src: i512, sizes: "512x512", type: "image/png", purpose: "any" }]
+        : [{ src: base + "icons/logo.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }];
+      const man = { name: club.nom, short_name: (club.nomCourt || club.nom).slice(0, 15), start_url: base + "#/c/" + clubId, scope: base,
+        id: base + "#/c/" + clubId, display: "standalone", background_color: couleur, theme_color: couleur, lang: "fr", icons: icones };
+      const lien = (rel) => { let l = document.querySelector(`link[rel="${rel}"]`); if (!l) { l = document.createElement("link"); l.rel = rel; document.head.appendChild(l); } return l; };
+      lien("manifest").href = "data:application/manifest+json;charset=utf-8," + encodeURIComponent(JSON.stringify(man));
+      if (i192) { lien("icon").href = i192; lien("apple-touch-icon").href = i512; }
+      let t = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (!t) { t = document.createElement("meta"); t.name = "apple-mobile-web-app-title"; document.head.appendChild(t); } t.content = man.short_name;
+    });
+  }
+
+  // Logo chargé depuis le téléphone : réduit à 512 px (léger, stocké dans la fiche du club) et couleurs dominantes extraites
   function lireLogo(fichier) {
     return new Promise((ok, ko) => {
       const img = new Image();
       img.onload = () => {
-        const t = 256, k = Math.min(1, t / Math.max(img.width, img.height));
+        const t = 512, k = Math.min(1, t / Math.max(img.width, img.height));
         const cv = document.createElement("canvas"); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
         const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0, cv.width, cv.height);
+        // PNG pour garder la forme (fond transparent) ; plus compact si l'image est lourde
         let url = cv.toDataURL("image/png");
-        if (url.length > 180000) url = cv.toDataURL("image/webp", 0.85);
-        if (url.length > 300000) url = cv.toDataURL("image/jpeg", 0.8);
+        if (url.length > 350000) url = cv.toDataURL("image/webp", 0.85);
         // couleurs : petite image, regroupement par teinte proche, on écarte transparent, blanc et gris très clairs
         const p = document.createElement("canvas"); p.width = p.height = 64;
         const px = p.getContext("2d"); px.drawImage(img, 0, 0, 64, 64);
@@ -589,6 +626,12 @@
     $("#cx-in").onclick = () => action(() => B.connecterEmail($("#cx-e").value, $("#cx-m").value, false));
     $("#cx-up").onclick = () => action(() => B.connecterEmail($("#cx-e").value, $("#cx-m").value, true));
   }
+
+  /* ---------- Installer l'appli du club sur l'écran d'accueil ---------- */
+  let invite = null;
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); invite = e; const b = $("#installer"); if (b) b.hidden = false; });
+  const estIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  const installee = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
 
   /* ---------- Démarrage ---------- */
   (async () => {

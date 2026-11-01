@@ -111,3 +111,4 @@ details summary { cursor: pointer; margin: 6px 0; }
 .logo-zone img { width: 84px; height: 84px; object-fit: contain; border-radius: 16px; background: var(--surface-2); padding: 6px; }
 .palette { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
 .pastille { width: 42px; height: 42px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.installer { margin-top: 12px; background: var(--accent); color: var(--on-accent); }
