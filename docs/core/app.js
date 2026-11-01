@@ -43,7 +43,8 @@
       case "refs": return esc((v || []).map((x) => nomDoc((S.cache[ch.ref] || []).find((d) => d.id === x) || S.sports[x] || { id: x })).join(", "));
       case "liste": return esc((v || []).join(", "));
       case "map": return esc(Object.entries(v || {}).map(([k, x]) => `${k} : ${x}`).join(" · "));
-      case "image": case "lien": return `<a href="${esc(v)}" target="_blank" rel="noopener">ouvrir</a>`;
+      case "image": return String(v).startsWith("data:") || /^https?:/.test(v) ? `<img class="mini-photo" src="${esc(v)}" alt="">` : "";
+      case "lien": return `<a href="${esc(v)}" target="_blank" rel="noopener">ouvrir</a>`;
       default: return esc(v);
     }
   }
@@ -51,7 +52,26 @@
 
   const PITCH = '<svg class="pitch" viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#fff" stroke-width="2.5" aria-hidden="true"><rect x="12" y="12" width="376" height="236" rx="6"/><path d="M200 12v236"/><circle cx="200" cy="130" r="38"/><circle cx="200" cy="130" r="3" fill="#fff"/><path d="M12 80h50v100H12M388 80h-50v100h50"/><path d="M12 108h-8v44h8M388 108h8v44h-8"/></svg>';
   const initiales = (n) => String(n || "?").split(/\s+/).filter(Boolean).map((x) => x[0]).join("").slice(0, 2).toUpperCase();
-  const maillot = (txt, num) => `<svg class="jersey" viewBox="0 0 84 84" aria-hidden="true"><path d="M26 8h32l18 12-8 14-8-4v46H24V30l-8 4-8-14z" fill="var(--accent)" stroke="#fff" stroke-width="2"/><text x="42" y="${num ? 60 : 58}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="800" font-size="${num ? 30 : 26}" fill="#fff">${esc(num || txt)}</text></svg>`;
+  const maillot = (txt, num) => `<svg class="jersey" viewBox="0 0 84 84" aria-hidden="true"><path d="M26 8h32l18 12-8 14-8-4v46H24V30l-8 4-8-14z" style="fill:var(--accent)" stroke="#fff" stroke-width="2"/><text x="42" y="${num ? 60 : 58}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="800" font-size="${num ? 30 : 26}" style="fill:var(--on-accent)">${esc(num || txt)}</text></svg>`;
+
+  // Photo prise ou choisie sur le téléphone : réduite (carrée 320 px pour un portrait, 1024 px sinon), stockée dans la fiche
+  function lirePhoto(fichier, portrait) {
+    return new Promise((ok, ko) => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement("canvas"), cx = cv.getContext("2d");
+        if (portrait) { const c = Math.min(img.width, img.height); cv.width = cv.height = 320; cx.drawImage(img, (img.width - c) / 2, (img.height - c) / 2, c, c, 0, 0, 320, 320); }
+        else { const k = Math.min(1, 1024 / Math.max(img.width, img.height)); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cx.drawImage(img, 0, 0, cv.width, cv.height); }
+        URL.revokeObjectURL(img.src); ok(cv.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = () => ko(new Error("image illisible")); img.src = URL.createObjectURL(fichier);
+    });
+  }
+  document.addEventListener("change", (e) => { const i = e.target.closest && e.target.closest("input[data-photo]"); if (!i || !i.files[0]) return;
+    action(async () => { const url = await lirePhoto(i.files[0], i.dataset.photo === "photo"); const z = i.closest(".photo-champ"); z.querySelector("input[type=hidden]").value = url;
+      const v = z.querySelector(".avatar, .apercu-img"); const im = document.createElement("img"); im.className = v.className.replace(" vide", ""); im.src = url; v.replaceWith(im); }, "Photo prête : pensez à enregistrer"); });
+  // avatar : la photo si elle existe, sinon les initiales aux couleurs du club
+  const avatar = (p, cls = "") => (p && p.photo ? `<img class="avatar ${cls}" src="${esc(p.photo)}" alt="">` : `<span class="avatar ${cls}">${esc(initiales(nomDoc(p) || "?"))}</span>`);
 
   /* ---------- Icônes au trait (même style partout, plus sobre que les émojis) ---------- */
   const ICO = {
@@ -123,7 +143,7 @@
           <span><b>${esc(club ? club.nomCourt || club.nom : P.nom)}</b><small>${esc(titre || (club ? club.slogan || "" : P.slogan))}</small></span>
         </a>
         <div class="compte">${B.mode === "firebase" && !B.uid ? `<a class="btn petit accent" href="#/connexion">Connexion</a>`
-            : `<a class="qui" href="${B.estAdmin() && !club ? "#/admin" : "#/profil"}"><b>${esc(nomCompte())}</b><small>${esc(libelleRole())}</small></a>`}
+            : `<a class="qui" href="${B.estAdmin() && !club ? "#/admin" : "#/profil"}"><b>${esc(nomCompte())}</b><small>${esc(libelleRole())}</small></a>${B.compte && B.compte.photo ? `<a href="#/profil"><img class="avatar moi" src="${esc(B.compte.photo)}" alt=""></a>` : ""}`}
           <button type="button" class="profil-btn" id="partager" title="Partager">${ico("partager")}</button></div>
       </header>
       <div class="cadre">
@@ -228,7 +248,7 @@
     const p = m.profil || {};
     const fiche = { type: TYPE_FICHE[p.profil] || "bénévole", prenom: p.prenom || m.nom || "", nom: p.nom || "", naissance: p.naissance || "", sexe: p.sexe || "",
       tel: m.tel || "", email: p.email || "", quartier: p.quartier || "", poste: p.poste || p.fonction || "", lateralite: p.lateralite || "",
-      taille: p.taille ?? null, poids: p.poids ?? null, contactUrgence: p.contactUrgence || "", statut: "actif", uid: m.uid,
+      taille: p.taille ?? null, poids: p.poids ?? null, contactUrgence: p.contactUrgence || "", photo: p.photo || "", statut: "actif", uid: m.uid,
       sectionId: p.sectionSouhaitee || "", categorieId: p.categorieSouhaitee || "" };
     if (!D.perimetreOk(fiche.sectionId, fiche.categorieId)) throw new Error("catégorie souhaitée hors de votre périmètre : choisissez-la dans Effectif");
     const id = await B.ecrire(S.clubId, "personnes", null, fiche); vider("personnes"); return id;
@@ -258,7 +278,8 @@
     const joues = evts.filter((e) => e.type === "match" && e.statut === "joué").sort((a, b) => (a.debut < b.debut ? 1 : -1));
     const mots = String(c.nom || "").trim().split(/\s+/), dernier = mots.length > 1 ? mots.pop() : "";
     const semaine = avenir.filter((e) => e.debut <= new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)).length;
-    const prochain = avenir[0];
+    const dans7 = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+    const prochain = avenir.find((e) => e.type === "match" && e.debut <= dans7 && D.lecture(pol("evenements"), e, e.id)) || avenir[0];
     let html = `<section class="hero">${PITCH}<div class="hero-in">
       <span class="tonight"><i></i>${prochain ? `Prochain : ${esc(nomDoc(prochain))} · ${dateFr(prochain.debut)}` : "Saison en cours"}</span>
       ${c.logo ? `<img class="hero-logo" src="${esc(c.logo)}" alt="">` : ""}
@@ -294,7 +315,7 @@
           const st = (S.cache.stats || []).filter((x) => x.personneId === pid), pr = (S.cache.presences || []).filter((x) => x.personneId === pid);
           const pres = pr.length ? Math.round((pr.filter((x) => x.statut === "présent" || x.statut === "retard").length / pr.length) * 100) + "%" : "—";
           const fo = scoreForme((p.forme || {})[jour()]);
-          html += `<div class="joueur-carte">${maillot(initiales(nomDoc(p)), p.numero)}<div><span class="sur">${esc(["Joueur", p.poste].filter(Boolean).join(" · "))}</span><h2>${esc(nomDoc(p))}</h2><span>${esc(nomCat(p) || "")}</span></div>
+          html += `<div class="joueur-carte">${p.photo ? `<span class="photo-num"><img src="${esc(p.photo)}" alt="">${p.numero ? `<b>${esc(p.numero)}</b>` : ""}</span>` : maillot(initiales(nomDoc(p)), p.numero)}<div><span class="sur">${esc(["Joueur", p.poste].filter(Boolean).join(" · "))}</span><h2>${esc(nomDoc(p))}</h2><span>${esc(nomCat(p) || "")}</span></div>
             <div class="stats"><div><b>${st.length}</b><span>matchs</span></div><div><b>${st.reduce((a, x) => a + (x.minutes || 0), 0)}</b><span>minutes</span></div><div><b>${pres}</b><span>présence</span></div><div><b>${fo ?? "–"}</b><span>forme</span></div></div></div>`;
         }
         html += `<div class="carte"><h3>${esc(p && p.type === "joueur" ? "Mon espace" : p ? nomDoc(p) : "Ma fiche")} <small class="muted">${esc(p && p.type !== "joueur" ? nomCat(p) : "")}</small></h3>
@@ -398,7 +419,7 @@
       await ecrireSoi(r.dataset.pid, "charges", r.dataset.evt, { d: (e.debut || jour()).slice(0, 10), rpe: +b.dataset.rpe, min }); route();
     }, "Effort enregistré")));
   }
-  const ligneForme = ({ p, s }) => `<a class="ligne forme-ligne" href="#/c/${S.clubId}/f/personnes/${p.id}"><span class="dot ${s.c}"></span>
+  const ligneForme = ({ p, s }) => `<a class="ligne forme-ligne" href="#/c/${S.clubId}/f/personnes/${p.id}"><span class="avatar-statut">${avatar(p, "moyen")}<span class="dot ${s.c}"></span></span>
     <div class="evt-txt"><b>${esc(nomDoc(p))}</b><small>${esc(s.raisons.join(" · ") || (s.repondu ? "en forme" : "pas encore répondu ce matin"))}</small></div>
     <span class="score ${s.repondu ? "" : "vide"}">${s.score ?? "–"}</span></a>`;
   function resumeForme(lignes) {
@@ -512,7 +533,7 @@
       </div>
       <div class="table">
         <div class="tr th">${colonnes.map((c) => `<span>${esc(c.label)}</span>`).join("")}${col.categorie ? "<span>Catégorie</span>" : ""}</div>
-        ${lst.map((d) => `<a class="tr" href="#/c/${S.clubId}/f/${col.id}/${d.id}">${colonnes.map((c) => `<span data-l="${esc(c.label)}">${valeur(c, d[c.id])}</span>`).join("")}${col.categorie ? `<span data-l="Catégorie">${esc(nomCat(d))}</span>` : ""}</a>`).join("") || `<p class="muted vide">Aucun élément.</p>`}
+        ${lst.map((d) => `<a class="tr" href="#/c/${S.clubId}/f/${col.id}/${d.id}">${colonnes.map((c, i) => `<span data-l="${esc(c.label)}">${i === 0 && col.id === "personnes" ? avatar(d, "petit") + " " : ""}${valeur(c, d[c.id])}</span>`).join("")}${col.categorie ? `<span data-l="Catégorie">${esc(nomCat(d))}</span>` : ""}</a>`).join("") || `<p class="muted vide">Aucun élément.</p>`}
       </div>
       <p class="muted">${lst.length} élément(s) · ${esc(pol(col.id).l === "public" ? "visible par tous" : pol(col.id).l === "public?" ? "public si coché « vitrine »" : "accès réservé")}</p>`, mod.nom);
     const maj = () => { sessionStorage.setItem("filtre", JSON.stringify({ sec: $("#f-sec")?.value || "", cat: $("#f-cat")?.value || "", q: $("#f-q").value })); vueModule(modId, col.id); };
@@ -536,6 +557,8 @@
         return `<select ${n} ${dis}><option value=""></option>${l.map((x) => `<option value="${esc(x.id)}" ${x.id === v ? "selected" : ""}>${esc(nomDoc(x))}</option>`).join("")}${v && !l.some((x) => x.id === v) ? `<option value="${esc(v)}" selected>${esc(v)}</option>` : ""}</select>`; }
       case "refs": { const l = ch.ref.startsWith("/") ? Object.entries(S.sports).map(([id, s]) => ({ id, ...s })) : S.cache[ch.ref] || [];
         return `<div class="cases" data-refs="${ch.id}">${l.map((x) => `<label class="case"><input type="checkbox" value="${esc(x.id)}" ${(v || []).includes(x.id) ? "checked" : ""} ${dis}> ${esc(nomDoc(x))}</label>`).join("") || `<small class="muted">Rien à choisir</small>`}</div>`; }
+      case "image": return `<div class="photo-champ">${v ? `<img class="${ch.id === "photo" ? "avatar grand" : "apercu-img"}" src="${esc(v)}" alt="">` : `<span class="${ch.id === "photo" ? "avatar grand vide" : "apercu-img vide"}">${ch.id === "photo" ? ico("profil") : "🖼️"}</span>`}
+        <input type="hidden" ${n} value="${esc(v)}">${actif ? `<label class="btn petit clair">📷 ${v ? "Changer" : "Prendre ou choisir"}<input type="file" accept="image/*" data-photo="${ch.id}" hidden></label>` : ""}</div>`;
       case "liste": return `<textarea ${n} ${dis} rows="3" placeholder="Un élément par ligne">${esc((v || []).join("\n"))}</textarea>`;
       case "map": {
         const cles = sp && sp[ch.selonSport] ? sp[ch.selonSport] : Object.keys(v || {});
