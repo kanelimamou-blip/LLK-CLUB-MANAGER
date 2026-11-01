@@ -111,7 +111,7 @@
     D.regler({ uid: B.uid === "visiteur" ? null : B.uid, admin: B.estAdmin(), membre: S.membre, R: S.R });
     const coul = S.club.couleurs || {};
     appliquerCouleurs(coul.principale || "#0B5D3B", coul.accent || "#F2B705");
-    iconeClub(S.club, id);
+    iconeClub(S.club);
     document.title = S.club.nom;
   }
   async function route() {
@@ -413,35 +413,23 @@
     st.setProperty("--on-accent", luminance(accent) > 0.45 ? "#111" : "#fff");
     let m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = principale;
   }
-  // Icône de l'appli installée = logo du club, avec sa forme (fond transparent gardé), son nom et sa couleur.
-  // Le manifeste est fabriqué à la volée pour le club ouvert : l'appli installée s'ouvre directement sur ce club.
-  function iconeClub(club, clubId) {
-    const logo = club && club.logo;
-    const carre = (taille) => new Promise((ok) => {
-      if (!logo) return ok(null);
-      const img = new Image();
-      img.onload = () => {
-        const cv = document.createElement("canvas"); cv.width = cv.height = taille;
-        const k = Math.min(taille / img.width, taille / img.height) * 0.92; // petite marge pour que rien ne soit coupé
-        const w = img.width * k, h = img.height * k;
-        cv.getContext("2d").drawImage(img, (taille - w) / 2, (taille - h) / 2, w, h);
-        ok(cv.toDataURL("image/png"));
-      };
-      img.onerror = () => ok(null);
-      img.src = logo;
-    });
-    return Promise.all([carre(192), carre(512)]).then(([i192, i512]) => {
-      const base = location.href.split("#")[0];
-      const couleur = (club.couleurs || {}).principale || "#0B5D3B";
-      const icones = i192 ? [{ src: i192, sizes: "192x192", type: "image/png", purpose: "any" }, { src: i512, sizes: "512x512", type: "image/png", purpose: "any" }]
-        : [{ src: base + "icons/logo.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }];
-      const man = { name: club.nom, short_name: (club.nomCourt || club.nom).slice(0, 15), start_url: base + "#/c/" + clubId, scope: base,
-        id: base + "#/c/" + clubId, display: "standalone", background_color: couleur, theme_color: couleur, lang: "fr", icons: icones };
+  // Logo du club dans l'onglet et pour l'icône iPhone (« Sur l'écran d'accueil »). Sur Android, Chrome fabrique l'appli
+  // installée depuis le fichier manifest.webmanifest, qui doit être un vrai fichier en ligne : l'icône Android reste donc
+  // celle de la plateforme (docs/icons/), ou celle du club si l'appli lui est dédiée (remplacer docs/icons/logo.svg).
+  function iconeClub(club) {
+    const logo = club && club.logo; if (!logo) return;
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement("canvas"); cv.width = cv.height = 180;
+      const k = Math.min(180 / img.width, 180 / img.height) * 0.92, w = img.width * k, h = img.height * k;
+      cv.getContext("2d").drawImage(img, (180 - w) / 2, (180 - h) / 2, w, h);
+      const url = cv.toDataURL("image/png");
       const lien = (rel) => { let l = document.querySelector(`link[rel="${rel}"]`); if (!l) { l = document.createElement("link"); l.rel = rel; document.head.appendChild(l); } return l; };
-      lien("manifest").href = "data:application/manifest+json;charset=utf-8," + encodeURIComponent(JSON.stringify(man));
-      if (i192) { lien("icon").href = i192; lien("apple-touch-icon").href = i512; }
-      let t = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (!t) { t = document.createElement("meta"); t.name = "apple-mobile-web-app-title"; document.head.appendChild(t); } t.content = man.short_name;
-    });
+      lien("icon").href = url; lien("apple-touch-icon").href = url;
+    };
+    img.src = logo;
+    let t = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (!t) { t = document.createElement("meta"); t.name = "apple-mobile-web-app-title"; document.head.appendChild(t); }
+    t.content = (club.nomCourt || club.nom).slice(0, 15);
   }
 
   // Logo chargé depuis le téléphone : réduit à 512 px (léger, stocké dans la fiche du club) et couleurs dominantes extraites
