@@ -117,7 +117,7 @@
   async function route() {
     const parts = (location.hash || "#/").slice(2).split("/").filter(Boolean);
     try {
-      if (parts[0] === "admin") { S.club = null; S.clubId = null; D.regler({ membre: null }); return B.estAdmin() ? vueAdmin(parts[1]) : coquille(`<div class="carte">Espace réservé à l'admin de la plateforme.${B.uid ? `<p class="muted">Votre identifiant : <code>${esc(B.uid)}</code> (à mettre dans <code>admins</code> de config.js et dans <code>admin()</code> des règles).</p>` : ""}</div>`); }
+      if (parts[0] === "admin") { S.club = null; S.clubId = null; D.regler({ membre: null }); return B.estAdmin() ? vueAdmin(parts[1]) : coquille(`<div class="carte">Espace réservé à l'admin de la plateforme.${B.uid ? `<p>Votre identifiant : <code id="mon-uid">${esc(B.uid)}</code> <button class="btn petit" id="copier-uid">Copier</button></p><p class="muted">Envoyez-le à Claude : il le met dans config.js et dans les règles, puis vous collez les règles une seule fois.</p>` : `<p><a class="btn" href="#/connexion">Se connecter</a></p>`}</div>`); }
       if (parts[0] === "connexion") return vueConnexion();
       if (parts[0] === "profil") return vueProfil(false);
       // première connexion : la fiche du compte d'abord (sauf l'admin, qui doit pouvoir publier le modèle avant)
@@ -141,6 +141,7 @@
     } catch (e) { console.error(e); coquille(`<div class="carte erreur">Erreur : ${esc(e.message)}</div>`); }
   }
   window.addEventListener("hashchange", route);
+  document.addEventListener("click", (e) => { if (e.target.id === "copier-uid") navigator.clipboard.writeText(B.uid).then(() => toast("Identifiant copié")); });
   const toast = (t) => { document.querySelectorAll(".toast").forEach((x) => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); };
   async function action(fn, ok) { try { await fn(); if (ok) toast(ok); } catch (e) { console.error(e); toast("Refusé : " + (e.message || e)); } }
 
