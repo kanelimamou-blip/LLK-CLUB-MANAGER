@@ -119,7 +119,7 @@
     // club pro : la formation juste après l'accueil
     if (S.club.offre === "formation") { const i = items.findIndex((x) => x.k === "formation"); if (i > 1) items.splice(1, 0, items.splice(i, 1)[0]); }
     // caisse ouverte : juste après l'accueil, c'est l'action la plus fréquente quand elle est activée
-    if (moduleOn("finances") && (S.caisseActive || (D.can("finances") && S.club.offre !== "formation"))) items.splice(1, 0, { h: `${c}/cotiser`, t: S.caisseActive ? "Cotiser" : "Caisse ouverte", k: "cotiser" });
+    if (moduleOn("finances") && (S.caisseActive || (D.can("finances") && S.club.offre !== "formation"))) items.splice(1, 0, { h: `${c}/cotiser`, t: S.caisseActive ? "Cotiser" : "Caisse", k: "cotiser" });
     return items;
   }
   // Bouton « + » présent sur tous les écrans du club : on ajoute sans revenir à l'accueil.
@@ -357,7 +357,7 @@
       if (D.can("medical")) { const bl = await charger("blessures"); tuiles.push(["Indisponibles", bl.filter((b) => b.apte === "inapte").length]); }
       if (D.can("finances") && moduleOn("finances")) { const ec = await charger("echeances"); tuiles.push(["Impayés", argent(ec.filter((e) => e.statut !== "payé" && e.statut !== "exonéré").reduce((s, e) => s + (e.montant || 0) - (e.paye || 0), 0))]); }
       tuiles.push(["Événements à venir", avenir.filter((e) => D.dansPerimetre(e)).length]);
-      html += `<div class="tuiles stats">${tuiles.map(([t, v]) => `<div class="tuile"><b>${esc(v)}</b><span>${esc(t)}</span></div>`).join("")}</div>`;
+      html += `<div class="tuiles stats">${tuiles.map(([t, v]) => `<div class="tuile"><b${String(v).length > 6 ? ' class="long"' : ""}>${esc(v)}</b><span>${esc(t)}</span></div>`).join("")}</div>`;
       if (D.can("effectif") && moduleOn("sportif")) {
         const lignes = lignesForme(await charger("personnes"), await blessuresLisibles());
         if (lignes.length) html += `<div class="carte"><div class="lien-tete"><h3>Tableau du matin</h3><a class="lien" href="#/c/${S.clubId}/forme">Tout voir</a></div>${resumeForme(lignes)}${lignes.slice(0, 6).map(ligneForme).join("")}</div>`;
