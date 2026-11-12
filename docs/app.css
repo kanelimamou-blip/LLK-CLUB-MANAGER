@@ -387,6 +387,8 @@ h4 { font-family: var(--font); }
 .formules { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .tuiles.stats .tuile { min-width: 0; }
 .tuiles.bilan .tuile b { font-size: clamp(18px, 5.4vw, 26px); white-space: nowrap; }
+/* un montant (« 15 000 F CFA ») tient dans sa tuile sur téléphone au lieu d'être coupé */
+.tuiles.stats .tuile b.long { font-size: clamp(18px, 5.4vw, 30px); }
 
 /* ---------- Caisse ouverte ---------- */
 .caisse-tete { position: relative; overflow: hidden; background: linear-gradient(150deg, var(--deep, #111), var(--club)); color: #fff; border-radius: 22px; padding: 20px 18px 18px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow); }
